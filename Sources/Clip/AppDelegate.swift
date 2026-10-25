@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -40,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.onChoose = { [weak self] in self?.choose($0) }
         panel.onDelete = { [weak self] in self?.model.remove($0.id) }
         panel.onCaptureScreen = { [weak self] in self?.captureScreen() }
+        panel.onEditImage = { [weak self] in self?.editImageEntry($0) }
         panel.onMenu = { [weak self] sender in
             guard let self else { return }
             self.makeMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
@@ -229,6 +231,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         editor.showWindow(nil)
         editor.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func editImageEntry(_ entry: ClipEntry) {
+        guard entry.kind == .image else { return }
+        model.load(entry) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let payload):
+                    guard let image = self.imageFromPayload(payload) else {
+                        self.actionMessage = "Could not load this image for editing."
+                        self.refresh()
+                        return
+                    }
+                    self.panel.dismiss()
+                    self.openEditor(with: image)
+                case .failure:
+                    self.actionMessage = "Could not load this image for editing."
+                    self.refresh()
+                }
+            }
+        }
+    }
+
+    private func imageFromPayload(_ payload: ClipPayload) -> NSImage? {
+        for part in payload.parts {
+            for rep in part.representations {
+                if let ut = UTType(rep.type), ut.conforms(to: .image),
+                   let image = NSImage(data: rep.data) {
+                    return image
+                }
+            }
+        }
+        return nil
     }
 
     @objc private func togglePause() { monitor.paused.toggle(); refresh() }

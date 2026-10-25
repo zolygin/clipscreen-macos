@@ -9,6 +9,19 @@ final class FloatingPanel: NSPanel {
     }
 }
 
+final class ClipTableView: NSTableView {
+    var onRightClickRow: ((Int) -> Void)?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let point = convert(event.locationInWindow, from: nil)
+        let row = self.row(at: point)
+        guard row >= 0 else { return nil }
+        self.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        onRightClickRow?(row)
+        return nil
+    }
+}
+
 final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataSource,
                           NSTableViewDelegate, NSSearchFieldDelegate {
     var onChoose: ((ClipEntry) -> Void)?
@@ -16,11 +29,12 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     var onMenu: ((NSView) -> Void)?
     var onAccess: (() -> Void)?
     var onCaptureScreen: (() -> Void)?
+    var onEditImage: ((ClipEntry) -> Void)?
     var onDismiss: (() -> Void)?
     var thumbnail: ((ClipEntry) -> NSImage?)?
     private var userPosition: NSPoint?
     private let search = NSSearchField()
-    private let table = NSTableView()
+    private let table = ClipTableView()
     private let count = NSTextField(labelWithString: "0 / 100")
     private let hint = NSTextField(labelWithString: "")
     private let banner = NSTextField(wrappingLabelWithString: "")
@@ -187,6 +201,15 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         table.dataSource = self
         table.target = self
         table.action = #selector(clickedRow)
+        table.onRightClickRow = { [weak self] row in
+            guard let self, self.filtered.indices.contains(row) else { return }
+            let entry = self.filtered[row]
+            if entry.kind == .image {
+                self.onEditImage?(entry)
+            } else {
+                self.onChoose?(entry)
+            }
+        }
         table.setAccessibilityLabel("Clipboard history")
         scroll.documentView = table
 
@@ -196,6 +219,8 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         count.textColor = .secondaryLabelColor
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
+        hint.lineBreakMode = .byTruncatingTail
+        hint.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         access.font = .systemFont(ofSize: 11)
         access.bezelStyle = .rounded
         access.controlSize = .small
@@ -257,7 +282,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
 
     private func updateAccess() {
         let trusted = hasPastePermission()
-        hint.stringValue = trusted ? "↑↓ Select    ↩ Paste    esc Close" : "↩ Copy    then ⌘V to paste"
+        hint.stringValue = trusted ? "↑↓ Select    ↩ Paste    Right-click Edit    esc Close" : "↩ Copy    then ⌘V to paste"
         access.title = readPermissionNeeded ? "Enable History…" : "Enable Auto-Paste…"
         access.isHidden = trusted && !readPermissionNeeded
         footerHeight.constant = access.isHidden ? -46 : -76

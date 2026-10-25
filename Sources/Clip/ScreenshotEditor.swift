@@ -50,7 +50,7 @@ final class AnnotationCanvasView: NSView {
 
     init(image: NSImage) {
         self.baseImage = image
-        super.init(frame: NSRect(origin: .zero, size: image.size))
+        super.init(frame: .zero)
         wantsLayer = true
     }
 
@@ -71,30 +71,53 @@ final class AnnotationCanvasView: NSView {
         onUndoChange?(false)
     }
 
+    var imageRect: NSRect {
+        let padding: CGFloat = 20
+        let available = NSRect(x: padding, y: padding,
+                               width: max(10, bounds.width - padding * 2),
+                               height: max(10, bounds.height - padding * 2))
+        let imgSize = baseImage.size
+        guard imgSize.width > 0, imgSize.height > 0 else { return available }
+        let scale = min(available.width / imgSize.width, available.height / imgSize.height)
+        let w = imgSize.width * scale
+        let h = imgSize.height * scale
+        return NSRect(x: available.midX - w / 2, y: available.midY - h / 2, width: w, height: h)
+    }
+
+    private func toImagePoint(_ windowPoint: NSPoint) -> CGPoint? {
+        let viewPoint = convert(windowPoint, from: nil)
+        let rect = imageRect
+        guard rect.width > 0, rect.height > 0 else { return nil }
+        let clampedX = min(max(viewPoint.x, rect.minX), rect.maxX)
+        let clampedY = min(max(viewPoint.y, rect.minY), rect.maxY)
+        let relX = (clampedX - rect.minX) / rect.width
+        let relY = (clampedY - rect.minY) / rect.height
+        return CGPoint(x: relX * baseImage.size.width,
+                       y: relY * baseImage.size.height)
+    }
+
     override func mouseDown(with event: NSEvent) {
-        let loc = convert(event.locationInWindow, from: nil)
-        currentItem = AnnotationItem(tool: activeTool, startPoint: loc, endPoint: loc,
-                                     points: [loc], color: activeColor, lineWidth: activeLineWidth)
+        guard let pt = toImagePoint(event.locationInWindow) else { return }
+        currentItem = AnnotationItem(tool: activeTool, startPoint: pt, endPoint: pt,
+                                     points: [pt], color: activeColor, lineWidth: activeLineWidth)
         needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard var item = currentItem else { return }
-        let loc = convert(event.locationInWindow, from: nil)
-        item.endPoint = loc
+        guard var item = currentItem, let pt = toImagePoint(event.locationInWindow) else { return }
+        item.endPoint = pt
         if item.tool == .highlighter {
-            item.points.append(loc)
+            item.points.append(pt)
         }
         currentItem = item
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard var item = currentItem else { return }
-        let loc = convert(event.locationInWindow, from: nil)
-        item.endPoint = loc
+        guard var item = currentItem, let pt = toImagePoint(event.locationInWindow) else { return }
+        item.endPoint = pt
         if item.tool == .highlighter {
-            item.points.append(loc)
+            item.points.append(pt)
         }
         items.append(item)
         currentItem = nil
@@ -104,13 +127,35 @@ final class AnnotationCanvasView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        baseImage.draw(in: bounds)
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
+        let rect = imageRect
+        guard rect.width > 0, rect.height > 0,
+              let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // Draw shadow under image
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: -3), blur: 12,
+                          color: NSColor.black.withAlphaComponent(0.20).cgColor)
+        baseImage.draw(in: rect)
+        context.restoreGState()
+
+        // Draw subtle border around image
+        let border = NSBezierPath(rect: rect)
+        NSColor.separatorColor.withAlphaComponent(0.6).setStroke()
+        border.lineWidth = 0.5
+        border.stroke()
+
+        // Render annotations transformed to the current imageRect
+        context.saveGState()
+        context.translateBy(x: rect.minX, y: rect.minY)
+        let scaleX = rect.width / max(1, baseImage.size.width)
+        let scaleY = rect.height / max(1, baseImage.size.height)
+        context.scaleBy(x: scaleX, y: scaleY)
 
         let all = items + [currentItem].compactMap { $0 }
         for item in all {
             Self.render(item: item, in: context)
         }
+        context.restoreGState()
     }
 
     static func render(item: AnnotationItem, in context: CGContext) {
@@ -154,7 +199,7 @@ final class AnnotationCanvasView: NSView {
 
         case .highlighter:
             context.setStrokeColor(color.withAlphaComponent(0.38).cgColor)
-            context.setLineWidth(max(18, item.lineWidth * 5))
+            context.setLineWidth(max(20, item.lineWidth * 5.5))
             context.setLineCap(.round)
             context.setLineJoin(.round)
             context.setBlendMode(.multiply)
@@ -220,7 +265,6 @@ final class AnnotationCanvasView: NSView {
             }
         }
 
-
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
                                    pixelsWide: Int(pixelSize.width),
                                    pixelsHigh: Int(pixelSize.height),
@@ -240,7 +284,6 @@ final class AnnotationCanvasView: NSView {
 
         baseImage.draw(in: NSRect(origin: .zero, size: baseImage.size))
 
-        cg.scaleBy(x: baseImage.size.width / bounds.width, y: baseImage.size.height / bounds.height)
         for item in items {
             Self.render(item: item, in: cg)
         }
@@ -276,12 +319,20 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
         self.image = image
         self.canvas = AnnotationCanvasView(image: image)
 
-        let initialSize = NSSize(width: max(480, min(image.size.width + 32, 1100)),
-                                 height: max(360, min(image.size.height + 90, 800)))
+        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let maxW = screen.width * 0.85
+        let maxH = screen.height * 0.85
+
+        let toolbarMinWidth: CGFloat = 620
+        let naturalW = max(toolbarMinWidth, min(image.size.width + 64, maxW))
+        let naturalH = max(420, min(image.size.height + 120, maxH))
+
+        let initialSize = NSSize(width: naturalW, height: naturalH)
 
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: initialSize),
                               styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
+        window.minSize = NSSize(width: 580, height: 380)
         window.title = "Clip Screenshot Editor"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -303,14 +354,8 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(toolbar)
 
-        let scroll = NSScrollView()
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.hasHorizontalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.documentView = canvas
-        content.addSubview(scroll)
+        canvas.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(canvas)
 
         NSLayoutConstraint.activate([
             toolbar.topAnchor.constraint(equalTo: content.topAnchor, constant: 12),
@@ -319,10 +364,10 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             toolbar.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 16),
             toolbar.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
 
-            scroll.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 10),
-            scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-            scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16)
+            canvas.topAnchor.constraint(equalTo: toolbar.bottomAnchor, constant: 8),
+            canvas.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
+            canvas.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
+            canvas.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12)
         ])
 
         canvas.onUndoChange = { [weak self] canUndo in
