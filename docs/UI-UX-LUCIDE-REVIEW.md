@@ -17,17 +17,30 @@ Observed in source and native renders:
 
 The resize changes remove identifiable sources of unnecessary work and competing movement. Their effect on perceived smoothness is a hypothesis until tested by dragging the live window; automated geometry tests do not establish frame rate.
 
+## Header and hover follow-up
+
+The user supplied a live screenshot showing the original layered hover: the native recessed-button bezel drew a shorter fill inside the full-height custom active surface. The earlier default/active renders did not exercise this hover combination.
+
+This follow-up changes `LucideIcon.swift`, `HistoryPanel.swift`, `AppDelegate.swift` and `Tests/PanelPreview.swift`, plus the design/verification documentation:
+
+- Remove the duplicate header settings button and the static invocation-shortcut label. Keep the title, capture and rightmost Pin. The existing menu bar menu and row context menus are retained.
+- Disable the native button bezel and remove layer backgrounds/borders. Draw exactly one 6 pt rounded surface, inset 0.5 pt inside the existing 28 pt target, before drawing the original 16 pt icon.
+- Hover and press change that surface's intensity; they do not add another rectangle or change the target's geometry. Tracking areas follow visible bounds and leave inherited tracking areas intact.
+- Extend rendering with unpinned hover, pinned hover, pinned press and disabled states in both themes. These are isolated AppKit events in the renderer; they do not move the desktop pointer or interact with the user's running Clip.
+
+The rendered follow-up was inspected against references 01–07: header hierarchy, alignment and whitespace remain intact; the layered hover is gone; 360 pt layout and editor toolbar remain legible. This is visual inspection, not a usability-study claim.
+
 ## Literal constraints and rationale
 
 | Role | Value |
 | --- | --- |
 | Icon source | Unmodified Lucide 0.468.0 SVG paths, 24 × 24 view box, 2-unit rounded stroke |
 | Action icons / hit targets | 16 pt / 28 × 28 pt |
-| Header menu / native search / clear glyphs | 14 / 14 / 12 pt |
+| Native search / clear glyphs | 14 / 12 pt |
 | Action spacing | 4 pt; text-to-action gap 8 pt before native text-field alignment insets |
-| Header action order | Menu → capture → Pin; Pin trailing inset 16 pt |
+| Header action order | Capture → Pin; Pin trailing inset 16 pt; no settings button or shortcut label |
 | Row action order | Edit image when relevant → Pin; Pin trailing inset 16 pt |
-| Active state | Accent fill at 0.12 alpha, 1 pt outline at 0.5 alpha, 6 pt corners, accessible value |
+| Interaction surface | Single fill: active 0.08 / hover 0.12 / press 0.20 alpha; active 1 pt outline at 0.5 alpha; 6 pt corners; accessible value |
 | Preview fallback icons | 24 pt inside the existing 48 pt thumbnail slot |
 | Resize indicator / target | Three 1 pt diagonal strokes, longest 12 pt / 22 × 22 pt target |
 | Resize behavior | Fixed top-left anchor, backing-pixel rounding, no animation, one persistence commit at completion |
@@ -38,7 +51,7 @@ Retained: 18 pt panel corners, 16 pt content insets, 76 pt rows with 4 pt separa
 ## Files changed
 
 - `Resources/Lucide/*`: original SVGs, ISC license and pinned source provenance.
-- `Sources/Clip/LucideIcon.swift`: shared cached vector loader and icon button with native hover/press feedback and explicit active outline.
+- `Sources/Clip/LucideIcon.swift`: shared cached vector loader and icon button with one surface for hover/press/active feedback and explicit active outline.
 - `HistoryPanel.swift`: actual Pin edge anchoring, icon replacements, smaller menu/grip, isolated resize drag, end-only geometry persistence, keyboard pin/filter actions and accessible button state.
 - `PanelSurface.swift`: pinned-group separator placement.
 - `AnnotationTypes.swift`, `ScreenshotEditorToolbar.swift`, `StatusIcon.swift`: original Lucide tool and status icons. Paint bucket distinguishes filled rectangle from its outline.
@@ -50,12 +63,12 @@ Retained: 18 pt panel corners, 16 pt content insets, 76 pt rows with 4 pt separa
 
 Pinning and editing remain independent of row paste activation. `⌘P` acts on the selected entry; `⇧⌘P` toggles the pinned filter. Search, arrows, Return, Escape, deletion, source-app restoration and persistence retain their existing data flow. The model still publishes committed pin state; no new optimistic storage mutation is introduced.
 
-Icon controls retain native button roles and hover/press behavior, with explicit English names and tooltips. Pins expose Pinned/Not pinned; the filter exposes On/Off. An outline accompanies accent color so active state does not depend solely on hue. Row content no longer hides its action children behind a single accessibility element. Decorative previews remain excluded. No animation is introduced.
+Icon controls retain native button roles, activation and tracking, with one custom hover/press surface, with explicit English names and tooltips. Pins expose Pinned/Not pinned; the filter exposes On/Off. An outline accompanies accent color so active state does not depend solely on hue. Row content no longer hides its action children behind a single accessibility element. Decorative previews remain excluded. No animation is introduced.
 
 ## Checks performed
 
 - `bash scripts/check.sh`: all source type checking, 22 storage/clipboard/localization tests, plist validation and shell syntax pass. Named pasteboards are isolated from the user's current clipboard. Pasteboard tests require access to the system service outside the restricted sandbox.
-- `bash scripts/check-ui.sh`: 25 native renders pass, including transparent-corner checks and actual action/text frame checks. Widths: 320, 360, 430, 600 and 850 pt. States: light/dark, glass, opaque, pinned/filter, loading, empty, no matches, permissions, manual paste, errors and missing thumbnail, plus light/dark editor toolbars.
+- `bash scripts/check-ui.sh`: 33 native renders pass, including transparent-corner checks and actual action/text frame checks. Widths: 320, 360, 430, 600 and 850 pt. States: light/dark, glass, opaque, pinned/filter, loading, empty, no matches, permissions, manual paste, errors and missing thumbnail, plus light/dark editor toolbars and eight Pin hover/press/disabled renders. Header checks assert exactly two action buttons and absence of the invocation-shortcut label; interaction checks assert a stable 28 pt target, 16 pt icon and no native bezel.
 - 120 sequential resize updates preserve the left/top edges, keep action alignment, and do not invoke the completion callback until release. Tests cover min/max limits, pixel rounding and restoring window movement.
 - All vendored icon cases decode and render through AppKit as template images; menu bar variants are covered.
 - Actual renders were inspected against references 01–07. This exposed and corrected the stretched action stack and the weak selected-filter treatment. Native cell-frame assertions prevent a recurrence that source inspection alone missed.
@@ -76,7 +89,7 @@ Checked items are verified in the scope described, or explicitly not applicable.
 
 ### Component behavior
 
-- [x] Default, native hover/pressed, active/selected and disabled tool states are defined; existing loading/error states are rendered.
+- [x] Default, single-surface hover/pressed, active/selected and disabled tool states are defined; existing loading/error states are rendered.
 - [x] Pin/filter/tool programmatic values and visible states agree.
 - [x] Existing processing guard prevents repeated paste activation; no asynchronous new action introduced.
 - [x] No new optimistic mutation; existing storage reconciliation retained.
@@ -126,7 +139,7 @@ Checked items are verified in the scope described, or explicitly not applicable.
 - [x] Formatting/whitespace checked; no configured formatter.
 - [x] Swift type checking passes.
 - [x] Unit/integration and isolated interaction tests pass.
-- [x] 25 visual scenarios and 120 resize updates pass.
+- [x] 33 visual scenarios and 120 resize updates pass.
 - [x] Real-device scope documented: AppKit renderer runs on this Mac; live compositor behavior requires separate confirmation.
 - [x] Remaining assumptions and manual risks explicitly reported below.
 
@@ -134,4 +147,4 @@ Checked items are verified in the scope described, or explicitly not applicable.
 
 Offscreen renders do not prove WindowServer frame pacing, blur over a live desktop, permission prompts, or VoiceOver navigation. No performance measurement or user study is claimed. Original SVG loading was exercised on the current macOS; the macOS 13 deployment target is type-checked, without a separate macOS 13 machine run. Runtime resources are included by the build script; direct manual `swiftc` app builds must copy `Resources/Lucide` too.
 
-The requested development bundle is `.build/lucide/Clip.app`. The previous app must quit gracefully before launching it, allowing the existing `applicationWillTerminate` hook to flush history. Earlier bundles and stored history are retained.
+The original development bundle is `.build/lucide/Clip.app`; the header/hover follow-up is built separately as `.build/refined/Clip.app` for the user to launch from Terminal. The previous app must quit gracefully before launching it, allowing the existing `applicationWillTerminate` hook to flush history. Earlier bundles and stored history are retained.

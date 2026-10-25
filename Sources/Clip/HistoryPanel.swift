@@ -165,7 +165,6 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     var onChoose: ((ClipEntry) -> Void)?
     var onDelete: ((ClipEntry) -> Void)?
     var onTogglePin: ((ClipEntry) -> Void)?
-    var onMenu: ((NSView) -> Void)?
     var onAccess: (() -> Void)?
     var onCaptureScreen: (() -> Void)?
     var onEditImage: ((ClipEntry) -> Void)?
@@ -301,9 +300,6 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
 
         let title = NSTextField(labelWithString: "Clipboard")
         title.font = ClipStyle.titleFont
-        let shortcut = NSTextField(labelWithString: "⌥⌘V")
-        shortcut.font = .systemFont(ofSize: 13, weight: .medium)
-        shortcut.textColor = .secondaryLabelColor
 
         favoritesButton.refusesFirstResponder = true
         favoritesButton.target = self
@@ -313,10 +309,6 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         let capture = ClipIconButton(.scan, label: "Capture screen area (⌥⌘4)",
                                      target: self, action: #selector(triggerCaptureScreen))
         capture.refusesFirstResponder = true
-
-        let menu = ClipIconButton(.menu, label: "Clip menu", size: 14,
-                                  target: self, action: #selector(openMenu(_:)))
-        menu.refusesFirstResponder = true
 
         search.placeholderString = "Search history"
         search.font = .systemFont(ofSize: 14)
@@ -414,7 +406,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
 
         resizeHandle.onResized = { [weak self] _ in self?.saveWindowGeometry() }
 
-        for view in [title, shortcut, favoritesButton, capture, menu, search, banner, scroll, divider, count, hint, access, emptyTitle, emptyDetail, resizeHandle] {
+        for view in [title, favoritesButton, capture, search, banner, scroll, divider, count, hint, access, emptyTitle, emptyDetail, resizeHandle] {
             view.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(view)
         }
@@ -424,16 +416,11 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
             title.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: ClipStyle.inset),
             title.topAnchor.constraint(equalTo: root.topAnchor, constant: 20),
             favoritesButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -ClipStyle.inset),
-            menu.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            menu.widthAnchor.constraint(equalToConstant: 28), menu.heightAnchor.constraint(equalToConstant: 28),
             capture.trailingAnchor.constraint(equalTo: favoritesButton.leadingAnchor, constant: -4),
             capture.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             capture.widthAnchor.constraint(equalToConstant: 28), capture.heightAnchor.constraint(equalToConstant: 28),
-            menu.trailingAnchor.constraint(equalTo: capture.leadingAnchor, constant: -4),
             favoritesButton.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             favoritesButton.widthAnchor.constraint(equalToConstant: 28), favoritesButton.heightAnchor.constraint(equalToConstant: 28),
-            shortcut.trailingAnchor.constraint(equalTo: menu.leadingAnchor, constant: -8),
-            shortcut.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             search.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             search.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
             search.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 16),
@@ -572,7 +559,6 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         guard table.clickedRow >= 0, let entry = selectedEntry else { return }
         onChoose?(entry)
     }
-    @objc private func openMenu(_ sender: NSButton) { onMenu?(sender) }
     @objc private func triggerCaptureScreen() { onCaptureScreen?() }
     @objc private func requestAccess() {
         if readPermissionNeeded { onAccess?() } else { PasteController.requestPermission() }

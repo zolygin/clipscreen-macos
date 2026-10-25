@@ -31,24 +31,25 @@ enum LucideIcon: String, CaseIterable {
     }
 }
 
-/// A consistent hit target and native hover/press treatment for icon actions.
+/// One surface for hover, press and active state. A native button bezel would
+/// add a second, shorter hover fill over the active outline.
 final class ClipIconButton: NSButton {
     private var isActive = false
+    private var isHovered = false
+    private var hoverTrackingArea: NSTrackingArea?
 
     init(_ icon: LucideIcon, label: String, size: CGFloat = 16, target: AnyObject?, action: Selector?) {
         super.init(frame: .zero)
         image = icon.image(size: size)
         imagePosition = .imageOnly
-        bezelStyle = .recessed
-        isBordered = true
-        showsBorderOnlyWhileMouseInside = true
+        bezelStyle = .inline
+        isBordered = false
         contentTintColor = .secondaryLabelColor
         toolTip = label
         setAccessibilityLabel(label)
         self.target = target
         self.action = action
         wantsLayer = true
-        layer?.cornerRadius = 6
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -57,19 +58,47 @@ final class ClipIconButton: NSButton {
         isActive = active
         state = active ? .on : .off
         contentTintColor = active ? .controlAccentColor : .secondaryLabelColor
-        updateActiveAppearance()
+        needsDisplay = true
     }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        updateActiveAppearance()
+        needsDisplay = true
     }
 
-    private func updateActiveAppearance() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = isActive ? NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor : nil
-            layer?.borderColor = isActive ? NSColor.controlAccentColor.withAlphaComponent(0.5).cgColor : nil
-            layer?.borderWidth = isActive ? 1 : 0
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let area = NSTrackingArea(rect: .zero,
+                                  options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isEnabled && (isActive || isHovered || isHighlighted) {
+            let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+            let color: NSColor = isActive ? .controlAccentColor : .labelColor
+            let alpha: CGFloat = isHighlighted ? 0.20 : isHovered ? 0.12 : 0.08
+            color.withAlphaComponent(alpha).setFill()
+            shape.fill()
+            if isActive {
+                color.withAlphaComponent(0.5).setStroke()
+                shape.lineWidth = 1
+                shape.stroke()
+            }
         }
+        super.draw(dirtyRect)
     }
 }

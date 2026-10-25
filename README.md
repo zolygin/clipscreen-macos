@@ -84,7 +84,7 @@ open .build/Clip.app
 1. **Pasteboard Access**: When prompted by macOS, allow clipboard access so Clip can monitor copied items in the background.
 2. **Accessibility Permission (for 1-click paste)**: To allow Clip to automatically paste items into your destination app upon pressing `Return`, enable Clip in **System Settings → Privacy & Security → Accessibility**.
    *(If Accessibility is not granted, pressing Return will copy the item to the clipboard for manual `⌘V` pasting).*
-3. **Launch at Login**: Click the menu button in the Clip header (or right-click the menu bar icon) to enable "Launch at Login".
+3. **Launch at Login**: Right-click the Clip icon in the macOS menu bar to enable "Launch at Login".
 
 ## Privacy & Data Storage
 
@@ -101,7 +101,7 @@ The project includes an isolated test suite and headless UI preview renderer:
 # Run 22 unit and integration tests (uses isolated temporary pasteboards)
 bash scripts/check.sh
 
-# Render and verify 25 native visual scenarios, pin alignment and 120 resize updates
+# Render and verify 33 native visual scenarios, pin alignment and 120 resize updates
 bash scripts/check-ui.sh
 ```
 

@@ -113,7 +113,8 @@ struct PanelPreview {
                     mode: PanelSurface.MaterialMode = .standard, data: [ClipEntry]? = nil,
                     message: String? = nil, readPermission: Bool = false, pastePermission: Bool = true,
                     loading: Bool = false, query: String? = nil, width: CGFloat = 430,
-                    pinnedFilter: Bool = false, missingThumbnail: Bool = false) throws {
+                    pinnedFilter: Bool = false, missingThumbnail: Bool = false,
+                    hoverPin: Bool = false, pressPin: Bool = false, disablePin: Bool = false) throws {
             let panel = HistoryPanel(materialMode: mode, hasPastePermission: { pastePermission })
             panel.thumbnail = { $0.kind == .image && !missingThumbnail ? image : nil }
             let window = panel.window!
@@ -128,6 +129,25 @@ struct PanelPreview {
                 panel.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: search))
             }
             view.layoutSubtreeIfNeeded()
+            if hoverPin || pressPin || disablePin {
+                let table = descendants(view).compactMap { $0 as? NSTableView }.first!
+                let cell = table.view(atColumn: 0, row: 0, makeIfNecessary: true) as! ClipCell
+                let pin = cell.subviews.compactMap { $0 as? ClipIconButton }
+                    .first { $0.action == NSSelectorFromString("pinClicked") }!
+                let frame = pin.frame
+                if hoverPin {
+                    let event = NSEvent.enterExitEvent(with: .mouseEntered, location: .zero, modifierFlags: [],
+                                                       timestamp: 0, windowNumber: window.windowNumber, context: nil,
+                                                       eventNumber: 0, trackingNumber: 0, userData: nil)!
+                    pin.mouseEntered(with: event)
+                }
+                if pressPin { pin.highlight(true) }
+                pin.isEnabled = !disablePin
+                precondition(pin.frame == frame && pin.bounds.size == NSSize(width: 28, height: 28),
+                             "Pin hit target must not change across interaction states")
+                precondition(!pin.isBordered && pin.image?.size == NSSize(width: 16, height: 16),
+                             "One custom surface, with no native bezel stacked over it")
+            }
             window.displayIfNeeded()
             verifyActionAlignment(view)
             let surface = view as! PanelSurface
@@ -174,6 +194,15 @@ struct PanelPreview {
         try render("panel-missing-thumbnail", missingThumbnail: true)
         try render("panel-error-narrow", message: "History storage is unavailable. Check disk space and folder permissions. (Error 513)", width: 360)
         for appearance: NSAppearance.Name in [.aqua, .darkAqua] {
+            let theme = appearance == .aqua ? "light" : "dark"
+            try render("panel-pin-hover-\(theme)", appearance: appearance, hoverPin: true)
+            try render("panel-pin-active-hover-\(theme)", appearance: appearance,
+                       data: pinnedEntries, pinnedFilter: true, hoverPin: true)
+            try render("panel-pin-pressed-\(theme)", appearance: appearance,
+                       data: pinnedEntries, pinnedFilter: true, hoverPin: true, pressPin: true)
+            try render("panel-pin-disabled-\(theme)", appearance: appearance, hoverPin: true, disablePin: true)
+        }
+        for appearance: NSAppearance.Name in [.aqua, .darkAqua] {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 780, height: 44),
                                   styleMask: [.borderless], backing: .buffered, defer: false)
             let toolbar = ScreenshotEditorToolbar()
@@ -199,6 +228,9 @@ struct PanelPreview {
     static func verifyActionAlignment(_ view: NSView) {
         let surface = view as! PanelSurface
         let headerButtons = surface.body.subviews.compactMap { $0 as? ClipIconButton }
+        precondition(headerButtons.count == 2, "Header must only contain capture and pinned filter")
+        precondition(!surface.body.subviews.compactMap({ $0 as? NSTextField }).contains { $0.stringValue == "⌥⌘V" },
+                     "Do not repeat the invocation shortcut inside the open history panel")
         let favorites = headerButtons.first { $0.action == NSSelectorFromString("toggleFavoritesFilter") }!
         precondition(abs(favorites.frame.maxX - (surface.body.bounds.width - 16)) < 1,
                      "Header Pin must be at the far right")

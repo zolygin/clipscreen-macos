@@ -36,7 +36,7 @@ The main modules are listed below (older line counts are approximate):
 - **`Sources/Clip/StatusIcon.swift`**
   Uses original bundled Lucide clipboard/pause template images for the menu bar.
 - **`Sources/Clip/LucideIcon.swift`**
-  Shared loader for original SVG assets in `Resources/Lucide`, plus consistent icon-button sizing, native hover/press behavior, and an outlined active state.
+  Shared loader for original SVG assets in `Resources/Lucide`, plus consistent icon-button sizing, a single surface for hover/press/active states, and an outlined active state.
 
 ### Clipboard Engine
 - **`Sources/Clip/History.swift`** (176 lines)  
@@ -84,7 +84,7 @@ Following the repository's strict verification policy:
    ```bash
    bash scripts/check-ui.sh
    ```
-   Renders and verifies 25 native visual scenarios, right-edge Pin alignment, keyboard pin/filter actions, and 120 resize updates with one geometry commit.
+   Renders and verifies 33 native visual scenarios, right-edge Pin alignment, keyboard pin/filter actions, and 120 resize updates with one geometry commit.
 
 3. **Development App Build**:
    ```bash

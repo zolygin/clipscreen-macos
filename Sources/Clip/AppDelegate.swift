@@ -43,10 +43,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.onTogglePin = { [weak self] in self?.model.togglePin($0.id) }
         panel.onCaptureScreen = { [weak self] in self?.captureScreen() }
         panel.onEditImage = { [weak self] in self?.editImageEntry($0) }
-        panel.onMenu = { [weak self] sender in
-            guard let self else { return }
-            self.makeMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-        }
         panel.onAccess = { [weak self] in self?.enableReading() }
         panel.onDismiss = { [weak self] in
             self?.choiceGeneration += 1
