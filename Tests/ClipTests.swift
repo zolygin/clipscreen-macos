@@ -299,6 +299,31 @@ struct ClipTests {
                 try expect(item?.detail == "3 characters", "Character count label")
             }
         }
+        try test("Pinned entries survive eviction and persist across reloads") {
+            try withRepository { repo, directory in
+                try repo.add(capture("pinned command"))
+                let pinnedID = repo.entries[0].id
+                try repo.togglePin(pinnedID)
+                try expect(repo.entries[0].isPinned, "Item not pinned")
+                for index in 0..<105 {
+                    try repo.add(capture("Entry \(index)"))
+                }
+                let reloaded = try HistoryRepository(directory: directory)
+                try expect(reloaded.entries.contains { $0.id == pinnedID && $0.isPinned }, "Pinned item was evicted")
+                try expect(reloaded.entries.filter { !$0.isPinned }.count == 100, "Unpinned items limit incorrect")
+            }
+        }
+        try test("Duplicate of pinned entry preserves pinned status") {
+            try withRepository { repo, _ in
+                try repo.add(capture("command"))
+                let id = repo.entries[0].id
+                try repo.togglePin(id)
+                try expect(repo.entries[0].isPinned, "Item not pinned")
+                try repo.add(capture("command"))
+                try expect(repo.entries.count == 1, "Duplicate created separate entry")
+                try expect(repo.entries[0].isPinned, "Duplicate lost pinned status")
+            }
+        }
         print("\n\(passed) tests passed. No access to the system clipboard; no full app build.")
     }
 }

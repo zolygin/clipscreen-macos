@@ -76,7 +76,7 @@ Following the repository's strict verification policy:
    ```bash
    bash scripts/check.sh
    ```
-   Runs 20 isolated unit tests without touching system clipboard or launching full apps.
+   Runs 22 isolated unit tests without touching system clipboard or launching full apps.
 
 2. **UI & Theme Scenario Tests**:
    ```bash

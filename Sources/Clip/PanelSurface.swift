@@ -2,6 +2,7 @@ import AppKit
 
 enum ClipStyle {
     static let panelSize = NSSize(width: 430, height: 590)
+    static let minPanelSize = NSSize(width: 360, height: 420)
     static let cornerRadius: CGFloat = 18
     static let inset: CGFloat = 16
     static let rowHeight: CGFloat = 76
@@ -127,11 +128,14 @@ final class PanelSurface: NSView {
 }
 
 final class ClipRowView: NSTableRowView {
+    var isFirstPinned = false
     override var interiorBackgroundStyle: NSView.BackgroundStyle { .normal }
 
     override func drawSelection(in dirtyRect: NSRect) {
         guard isSelected else { return }
-        let shape = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2),
+        let rightMargin: CGFloat = 14
+        let selectionRect = NSRect(x: 3, y: 2, width: max(0, bounds.width - 3 - rightMargin), height: bounds.height - 4)
+        let shape = NSBezierPath(roundedRect: selectionRect,
                                  xRadius: ClipStyle.rowRadius, yRadius: ClipStyle.rowRadius)
         NSColor.controlAccentColor.withAlphaComponent(0.12).setFill()
         shape.fill()
@@ -139,5 +143,17 @@ final class ClipRowView: NSTableRowView {
             NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? 0.85 : 0.35).setStroke()
         shape.lineWidth = 1
         shape.stroke()
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        if isFirstPinned {
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: 12, y: bounds.height - 1))
+            line.line(to: NSPoint(x: bounds.width - 24, y: bounds.height - 1))
+            NSColor.separatorColor.withAlphaComponent(0.5).setStroke()
+            line.lineWidth = 1
+            line.stroke()
+        }
     }
 }

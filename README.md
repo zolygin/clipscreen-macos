@@ -96,7 +96,7 @@ open .build/Clip.app
 The project includes an isolated test suite and headless UI preview renderer:
 
 ```bash
-# Run 20 unit and integration tests (uses isolated temporary pasteboards)
+# Run 22 unit and integration tests (uses isolated temporary pasteboards)
 bash scripts/check.sh
 
 # Render and verify 14 native visual scenarios

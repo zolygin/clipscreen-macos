@@ -48,6 +48,54 @@ struct ClipEntry: Codable, Identifiable, Equatable {
     var source: String
     let fingerprint: String
     let byteCount: Int
+    var isPinned: Bool
+
+    init(id: UUID, copiedAt: Date, kind: ClipKind, title: String, detail: String,
+         searchText: String, source: String, fingerprint: String, byteCount: Int,
+         isPinned: Bool = false) {
+        self.id = id
+        self.copiedAt = copiedAt
+        self.kind = kind
+        self.title = title
+        self.detail = detail
+        self.searchText = searchText
+        self.source = source
+        self.fingerprint = fingerprint
+        self.byteCount = byteCount
+        self.isPinned = isPinned
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, copiedAt, kind, title, detail, searchText, source, fingerprint, byteCount, isPinned
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        copiedAt = try container.decode(Date.self, forKey: .copiedAt)
+        kind = try container.decode(ClipKind.self, forKey: .kind)
+        title = try container.decode(String.self, forKey: .title)
+        detail = try container.decode(String.self, forKey: .detail)
+        searchText = try container.decode(String.self, forKey: .searchText)
+        source = try container.decode(String.self, forKey: .source)
+        fingerprint = try container.decode(String.self, forKey: .fingerprint)
+        byteCount = try container.decode(Int.self, forKey: .byteCount)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(copiedAt, forKey: .copiedAt)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(title, forKey: .title)
+        try container.encode(detail, forKey: .detail)
+        try container.encode(searchText, forKey: .searchText)
+        try container.encode(source, forKey: .source)
+        try container.encode(fingerprint, forKey: .fingerprint)
+        try container.encode(byteCount, forKey: .byteCount)
+        try container.encode(isPinned, forKey: .isPinned)
+    }
 
     // Existing records keep their original bytes and metadata. Generic image
     // labels are presented in English even for records from the first version.
@@ -108,8 +156,11 @@ final class HistoryRepository {
             guard let payload = try? payload(for: entry) else { return false }
             return payload.fingerprint == entry.fingerprint
         }
-        if valid != entries || valid.count > Self.limit {
-            try commit(Array(valid.prefix(Self.limit)))
+        let unpinned = valid.filter { !$0.isPinned }
+        let pinned = valid.filter { $0.isPinned }
+        let trimmed = Array(unpinned.prefix(Self.limit)) + pinned
+        if trimmed != entries {
+            try commit(trimmed)
         }
         try cleanOrphans()
     }
@@ -130,13 +181,23 @@ final class HistoryRepository {
         let entry = ClipEntry(id: UUID(), copiedAt: date, kind: capture.kind,
                               title: capture.title, detail: capture.detail,
                               searchText: capture.searchText, source: capture.source,
-                              fingerprint: fingerprint, byteCount: capture.payload.byteCount)
+                              fingerprint: fingerprint, byteCount: capture.payload.byteCount,
+                              isPinned: false)
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .binary
         try write(encoder.encode(capture.payload), to: payloadURL(entry.id))
         if let thumbnail = capture.thumbnail { try write(thumbnail, to: thumbnailURL(entry.id)) }
-        try commit(Array(([entry] + entries).prefix(Self.limit)))
+        let all = [entry] + entries
+        let keptUnpinned = Array(all.filter { !$0.isPinned }.prefix(Self.limit))
+        let keptPinned = all.filter { $0.isPinned }
+        try commit(keptUnpinned + keptPinned)
         try cleanOrphans()
+    }
+
+    func togglePin(_ id: UUID) throws {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries[index].isPinned.toggle()
+        try commit(entries)
     }
 
     func payload(for entry: ClipEntry) throws -> ClipPayload {

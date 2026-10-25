@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.thumbnail = { [weak self] in self?.model.thumbnail($0) }
         panel.onChoose = { [weak self] in self?.choose($0) }
         panel.onDelete = { [weak self] in self?.model.remove($0.id) }
+        panel.onTogglePin = { [weak self] in self?.model.togglePin($0.id) }
         panel.onCaptureScreen = { [weak self] in self?.captureScreen() }
         panel.onEditImage = { [weak self] in self?.editImageEntry($0) }
         panel.onMenu = { [weak self] sender in

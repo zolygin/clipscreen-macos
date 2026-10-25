@@ -24,6 +24,7 @@ final class HistoryModel {
 
     func add(_ capture: ClipCapture) { mutate { try $0.add(capture) } }
     func remove(_ id: UUID) { mutate { try $0.remove(id) } }
+    func togglePin(_ id: UUID) { mutate { try $0.togglePin(id) } }
     func clear() { mutate { try $0.clear() }; images.removeAllObjects() }
 
     func load(_ entry: ClipEntry, completion: @escaping (Result<ClipPayload, Error>) -> Void) {
