@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var actionMessage: String?
     private var isChoosing = false
     private var choiceGeneration = 0
+    private var editorController: ScreenshotEditorWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let bundleID = Bundle.main.bundleIdentifier,
@@ -182,13 +183,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openHistory() { showPanel() }
     @objc private func captureScreen() {
         panel.dismiss()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("clip_capture_\(UUID().uuidString).png")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            task.arguments = ["-i", "-c"]
-            try? task.run()
+            task.arguments = ["-i", tempURL.path]
+            task.terminationHandler = { proc in
+                DispatchQueue.main.async {
+                    defer { try? FileManager.default.removeItem(at: tempURL) }
+                    guard proc.terminationStatus == 0,
+                          let image = NSImage(contentsOf: tempURL) else {
+                        return
+                    }
+                    self?.openEditor(with: image)
+                }
+            }
+            do {
+                try task.run()
+            } catch {
+                NSLog("Failed to run screencapture: \(error)")
+            }
         }
     }
+
+    private func openEditor(with image: NSImage) {
+        NSApp.activate(ignoringOtherApps: true)
+        let editor = ScreenshotEditorWindowController(image: image)
+        self.editorController = editor
+        editor.onComplete = { [weak self] annotatedImage in
+            guard let self else { return }
+            self.editorController = nil
+            if let tiff = annotatedImage.tiffRepresentation,
+               let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                let board = NSPasteboard.general
+                board.clearContents()
+                board.setData(png, forType: .png)
+                board.setData(tiff, forType: .tiff)
+                self.monitor.poll(userInitiated: true)
+            }
+        }
+        editor.onCancel = { [weak self] in
+            self?.editorController = nil
+        }
+        editor.showWindow(nil)
+        editor.window?.makeKeyAndOrderFront(nil)
+    }
+
     @objc private func togglePause() { monitor.paused.toggle(); refresh() }
     @objc private func enablePasting() { panel.dismiss(); PasteController.requestPermission() }
     @objc private func enableReading() {
