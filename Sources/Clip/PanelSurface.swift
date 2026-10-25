@@ -149,8 +149,9 @@ final class ClipRowView: NSTableRowView {
         super.draw(dirtyRect)
         if isFirstPinned {
             let line = NSBezierPath()
-            line.move(to: NSPoint(x: 12, y: bounds.height - 1))
-            line.line(to: NSPoint(x: bounds.width - 24, y: bounds.height - 1))
+            let y: CGFloat = isFlipped ? 1 : bounds.height - 1
+            line.move(to: NSPoint(x: 12, y: y))
+            line.line(to: NSPoint(x: bounds.width - 24, y: y))
             NSColor.separatorColor.withAlphaComponent(0.5).setStroke()
             line.lineWidth = 1
             line.stroke()

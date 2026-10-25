@@ -9,6 +9,7 @@ if [[ "$APP_DIR" != /* || "$APP_DIR" != *.app ]]; then
 fi
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$PROJECT_DIR/.build/module-cache"
 cp "$PROJECT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp -R "$PROJECT_DIR/Resources/Lucide" "$APP_DIR/Contents/Resources/"
 SWIFT_COMPILER="$(xcrun --find swiftc)"
 ARCH="$(uname -m)"
 SDK_PATH="$(xcrun --show-sdk-path)"

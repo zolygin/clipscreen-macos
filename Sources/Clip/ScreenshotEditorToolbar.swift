@@ -8,7 +8,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     var onSave: (() -> Void)?
     var onCopy: (() -> Void)?
 
-    private var toolButtons: [AnnotationTool: NSButton] = [:]
+    private var toolButtons: [AnnotationTool: ClipIconButton] = [:]
     private var colorButtons: [NSColor: NSButton] = [:]
     private let colorWell = NSColorWell()
     private(set) var undoButton: NSButton!
@@ -49,11 +49,8 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         ])
 
         for tool in AnnotationTool.allCases {
-            let btn = NSButton(image: NSImage(systemSymbolName: tool.symbolName, accessibilityDescription: tool.title)!,
-                               target: self, action: #selector(toolClicked(_:)))
+            let btn = ClipIconButton(tool.icon, label: tool.title, target: self, action: #selector(toolClicked(_:)))
             btn.tag = tool.rawValue
-            btn.isBordered = false
-            btn.bezelStyle = .inline
             btn.toolTip = tool.title
             btn.widthAnchor.constraint(equalToConstant: 30).isActive = true
             btn.heightAnchor.constraint(equalToConstant: 30).isActive = true
@@ -84,20 +81,14 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
 
         stack.addArrangedSubview(makeSeparator())
 
-        undoButton = NSButton(image: NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: "Undo")!,
-                              target: self, action: #selector(undoClicked))
-        undoButton.isBordered = false
-        undoButton.bezelStyle = .inline
+        undoButton = ClipIconButton(.undo, label: "Undo", target: self, action: #selector(undoClicked))
         undoButton.toolTip = "Undo (⌘Z)"
         undoButton.isEnabled = false
         undoButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
         undoButton.heightAnchor.constraint(equalToConstant: 28).isActive = true
         stack.addArrangedSubview(undoButton)
 
-        redoButton = NSButton(image: NSImage(systemSymbolName: "arrow.uturn.forward", accessibilityDescription: "Redo")!,
-                              target: self, action: #selector(redoClicked))
-        redoButton.isBordered = false
-        redoButton.bezelStyle = .inline
+        redoButton = ClipIconButton(.redo, label: "Redo", target: self, action: #selector(redoClicked))
         redoButton.toolTip = "Redo (⇧⌘Z)"
         redoButton.isEnabled = false
         redoButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
@@ -133,10 +124,8 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     func updateToolSelection(activeTool: AnnotationTool) {
         for (tool, btn) in toolButtons {
             let isSelected = tool == activeTool
-            btn.contentTintColor = isSelected ? .controlAccentColor : .secondaryLabelColor
-            btn.wantsLayer = true
-            btn.layer?.cornerRadius = 6
-            btn.layer?.backgroundColor = isSelected ? NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor : nil
+            btn.setActive(isSelected)
+            btn.setAccessibilityValue(isSelected ? "Selected" : "Not selected")
         }
     }
 

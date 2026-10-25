@@ -34,7 +34,9 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 - **Instant Recall & Paste**: Press `⌥⌘V` anywhere, select an item, and press `Return` to auto-paste back into the active application.
 - **Rich Content Support**: Preserves plain text, rich formatted text (RTF), full-resolution images (with lightweight PNG thumbnails), and Finder file references.
 - **Instant Search**: Filter through entries in real time by copied text or source application name.
-- **Screenshot Button**: Integrated camera button (`⇧⌘4`) in the header launches interactive area selection and saves the screenshot directly into your clipboard history.
+- **Screenshot Button**: Integrated camera button (`⌥⌘4`) in the header launches interactive area selection and saves the screenshot directly into your clipboard history.
+- **Consistent Icons**: Original Lucide SVGs across history, search, menu bar, and screenshot tools; bundled locally with their license.
+- **Pinned Items**: Pin buttons stay at the far right. Use `⌘P` for the selected item or `⇧⌘P` to filter pinned items.
 - **Window Positioning**: Draggable floating panel that remembers its position across invocations.
 - **Native Design**: Built with AppKit and modern macOS materials (Liquid Glass on macOS 26, standard system blur with Reduce Transparency fallback), respecting system Dark/Light themes.
 - **Zero Bloat**: No Electron, no web runtime, zero external dependencies, minimal memory footprint.
@@ -50,7 +52,7 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 | `Return` | Paste selected entry into active application and close panel |
 | `Space` | Select / preview item |
 | `⌘⌫` | Delete selected entry from history |
-| `⇧⌘4` / 📷 | Take an interactive screenshot directly to clipboard |
+| `⌥⌘4` / 📷 | Take an interactive screenshot directly to clipboard |
 | `Esc` | Close panel without pasting |
 
 ## Requirements
@@ -82,7 +84,7 @@ open .build/Clip.app
 1. **Pasteboard Access**: When prompted by macOS, allow clipboard access so Clip can monitor copied items in the background.
 2. **Accessibility Permission (for 1-click paste)**: To allow Clip to automatically paste items into your destination app upon pressing `Return`, enable Clip in **System Settings → Privacy & Security → Accessibility**.
    *(If Accessibility is not granted, pressing Return will copy the item to the clipboard for manual `⌘V` pasting).*
-3. **Launch at Login**: Click the `⋯` menu in the Clip header (or right-click the menu bar icon) to enable "Launch at Login".
+3. **Launch at Login**: Click the menu button in the Clip header (or right-click the menu bar icon) to enable "Launch at Login".
 
 ## Privacy & Data Storage
 
@@ -99,9 +101,11 @@ The project includes an isolated test suite and headless UI preview renderer:
 # Run 22 unit and integration tests (uses isolated temporary pasteboards)
 bash scripts/check.sh
 
-# Render and verify 14 native visual scenarios
+# Render and verify 25 native visual scenarios, pin alignment and 120 resize updates
 bash scripts/check-ui.sh
 ```
+
+The latest interface diagnosis, visual constraints, verification limits, and filled implementation QA checklist are in [the Lucide and resize review](docs/UI-UX-LUCIDE-REVIEW.md).
 
 ## Contributing
 

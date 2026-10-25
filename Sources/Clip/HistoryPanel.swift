@@ -4,6 +4,9 @@ final class ResizeHandleView: NSView {
     var onResized: ((NSSize) -> Void)?
     private var initialMouseLocation: NSPoint = .zero
     private var initialWindowFrame: NSRect = .zero
+    private var resizeScreenFrame: NSRect = .zero
+    private var resizeScale: CGFloat = 1
+    private var wasMovable = true
     private var isDragging = false
     private var isHovered = false
 
@@ -13,6 +16,8 @@ final class ResizeHandleView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var mouseDownCanMoveWindow: Bool { false }
 
     private static let resizeCursor: NSCursor = {
         let size = NSSize(width: 17, height: 17)
@@ -67,66 +72,77 @@ final class ResizeHandleView: NSView {
             : (isHovered ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor.withAlphaComponent(0.6))
         color.setStroke()
         let path = NSBezierPath()
-        path.lineWidth = 1.5
+        path.lineWidth = 1
         path.lineCapStyle = .round
         let w = bounds.width
-        path.move(to: NSPoint(x: w - 5, y: 11))
-        path.line(to: NSPoint(x: w - 11, y: 5))
-        path.move(to: NSPoint(x: w - 5, y: 16))
-        path.line(to: NSPoint(x: w - 16, y: 5))
-        path.move(to: NSPoint(x: w - 5, y: 21))
-        path.line(to: NSPoint(x: w - 21, y: 5))
+        for length: CGFloat in [4, 8, 12] {
+            path.move(to: NSPoint(x: w - 5, y: 5 + length))
+            path.line(to: NSPoint(x: w - 5 - length, y: 5))
+        }
         path.stroke()
     }
 
     override func mouseDown(with event: NSEvent) {
+        beginResize(at: NSEvent.mouseLocation)
+    }
+
+    func beginResize(at point: NSPoint) {
         guard let window else { return }
         isDragging = true
-        initialMouseLocation = NSEvent.mouseLocation
+        initialMouseLocation = point
         initialWindowFrame = window.frame
+        resizeScreenFrame = (window.screen ?? NSScreen.main)?.visibleFrame ?? window.frame
+        resizeScale = window.backingScaleFactor
+        wasMovable = window.isMovable
+        window.isMovable = false
         needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
+        resize(to: NSEvent.mouseLocation)
+    }
+
+    func resize(to point: NSPoint) {
         guard isDragging, let window else { return }
-        let current = NSEvent.mouseLocation
-        let deltaX = current.x - initialMouseLocation.x
-        let deltaY = current.y - initialMouseLocation.y
-
-        let screen = window.screen ?? NSScreen.main
-        let screenFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
-        let minW: CGFloat = ClipStyle.minPanelSize.width
-        let minH: CGFloat = ClipStyle.minPanelSize.height
-        let maxW: CGFloat = min(850, screenFrame.width - 32)
-        let maxH: CGFloat = min(1100, screenFrame.height - 32)
-
-        let newWidth = min(maxW, max(minW, initialWindowFrame.width + deltaX))
-        let newHeight = min(maxH, max(minH, initialWindowFrame.height - deltaY))
-        let actualDeltaHeight = newHeight - initialWindowFrame.height
-        let newOriginY = initialWindowFrame.origin.y - actualDeltaHeight
-
-        let newFrame = NSRect(x: initialWindowFrame.origin.x,
-                              y: newOriginY,
-                              width: newWidth,
-                              height: newHeight)
-        window.setFrame(newFrame, display: true)
-        onResized?(newFrame.size)
+        let frame = Self.resizedFrame(initial: initialWindowFrame,
+                                     delta: NSPoint(x: point.x - initialMouseLocation.x,
+                                                    y: point.y - initialMouseLocation.y),
+                                     screen: resizeScreenFrame, scale: resizeScale)
+        guard window.frame != frame else { return }
+        // Let AppKit coalesce drawing with its normal display cycle. Forcing a
+        // display and defaults writes for every pointer event stalls resizing.
+        window.setFrame(frame, display: false, animate: false)
     }
 
     override func mouseUp(with event: NSEvent) {
+        endResize()
+    }
+
+    func endResize() {
+        guard isDragging else { return }
         isDragging = false
         needsDisplay = true
-        if let window { onResized?(window.frame.size) }
+        if let window {
+            window.isMovable = wasMovable
+            onResized?(window.frame.size)
+        }
+    }
+
+    static func resizedFrame(initial: NSRect, delta: NSPoint, screen: NSRect, scale: CGFloat) -> NSRect {
+        let maxWidth = max(ClipStyle.minPanelSize.width, min(850, screen.maxX - initial.minX - 16))
+        let maxHeight = max(ClipStyle.minPanelSize.height, min(1100, initial.maxY - screen.minY - 16))
+        let pixelScale = max(1, scale)
+        let width = min(maxWidth, max(ClipStyle.minPanelSize.width,
+                                     ((initial.width + delta.x) * pixelScale).rounded() / pixelScale))
+        let height = min(maxHeight, max(ClipStyle.minPanelSize.height,
+                                       ((initial.height - delta.y) * pixelScale).rounded() / pixelScale))
+        return NSRect(x: initial.minX, y: initial.maxY - height, width: width, height: height)
     }
 }
 
 final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
-    override var isMovable: Bool {
-        get { true }
-        set { }
-    }
 }
 
 final class ClipTableView: NSTableView {
@@ -164,7 +180,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     private let emptyTitle = NSTextField(labelWithString: "Your clipboard, a little longer")
     private let emptyDetail = NSTextField(wrappingLabelWithString: "Copy text or an image with ⌘C.\nYour last 100 items will appear here.")
     private let access = NSButton(title: "Enable Auto-Paste", target: nil, action: nil)
-    private let favoritesButton = NSButton()
+    private let favoritesButton = ClipIconButton(.pin, label: "Show pinned items (⇧⌘P)", target: nil, action: nil)
     private let resizeHandle = ResizeHandleView()
     private var showOnlyPinned = false
     private var entries: [ClipEntry] = []
@@ -184,6 +200,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         let panel = FloatingPanel(contentRect: NSRect(origin: .zero, size: ClipStyle.panelSize),
                                   styleMask: [.borderless, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.minSize = ClipStyle.minPanelSize
+        panel.maxSize = NSSize(width: 850, height: 1100)
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.isOpaque = false
@@ -191,6 +208,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = true
+        panel.isMovable = true
         panel.title = "Clip — Clipboard history"
         panel.isReleasedWhenClosed = false
         super.init(window: panel)
@@ -287,31 +305,17 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         shortcut.font = .systemFont(ofSize: 13, weight: .medium)
         shortcut.textColor = .secondaryLabelColor
 
-        favoritesButton.image = NSImage(systemSymbolName: "pin", accessibilityDescription: "Favorites")?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
-        favoritesButton.isBordered = false
-        favoritesButton.bezelStyle = .inline
-        favoritesButton.toolTip = "Favorites (pinned items)"
-        favoritesButton.focusRingType = .none
         favoritesButton.refusesFirstResponder = true
         favoritesButton.target = self
         favoritesButton.action = #selector(toggleFavoritesFilter)
         favoritesButton.contentTintColor = .secondaryLabelColor
 
-        let capture = NSButton(image: NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Capture Area (⌥⌘4)")!,
-                               target: self, action: #selector(triggerCaptureScreen))
-        capture.isBordered = false
-        capture.bezelStyle = .inline
-        capture.toolTip = "Capture screen area to clipboard (⌥⌘4)"
-        capture.focusRingType = .none
+        let capture = ClipIconButton(.scan, label: "Capture screen area (⌥⌘4)",
+                                     target: self, action: #selector(triggerCaptureScreen))
         capture.refusesFirstResponder = true
 
-        let menu = NSButton(image: NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Clip menu")!,
-                            target: self, action: #selector(openMenu(_:)))
-        menu.isBordered = false
-        menu.bezelStyle = .inline
-        menu.toolTip = "Recording, login and history settings"
-        menu.focusRingType = .none
+        let menu = ClipIconButton(.menu, label: "Clip menu", size: 14,
+                                  target: self, action: #selector(openMenu(_:)))
         menu.refusesFirstResponder = true
 
         search.placeholderString = "Search history"
@@ -322,6 +326,10 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         search.delegate = self
         search.sendsSearchStringImmediately = true
         search.setAccessibilityLabel("Search clipboard history")
+        if let cell = search.cell as? NSSearchFieldCell {
+            cell.searchButtonCell?.image = LucideIcon.search.image(size: 14)
+            cell.cancelButtonCell?.image = LucideIcon.x.image(size: 12)
+        }
         banner.font = .systemFont(ofSize: 12)
         banner.textColor = .secondaryLabelColor
         banner.maximumNumberOfLines = 0
@@ -345,6 +353,8 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         table.focusRingType = .none
         let column = NSTableColumn(identifier: .init("clip"))
         column.resizingMask = .autoresizingMask
+        column.minWidth = 0
+        column.maxWidth = .greatestFiniteMagnitude
         table.addTableColumn(column)
         table.delegate = self
         table.dataSource = self
@@ -402,11 +412,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         emptyDetail.textColor = .secondaryLabelColor
         emptyDetail.alignment = .center
 
-        resizeHandle.onResized = { [weak self] size in
-            UserDefaults.standard.set(Double(size.width), forKey: "clip.panelWidth")
-            UserDefaults.standard.set(Double(size.height), forKey: "clip.panelHeight")
-            self?.userPosition = self?.window?.frame.origin
-        }
+        resizeHandle.onResized = { [weak self] _ in self?.saveWindowGeometry() }
 
         for view in [title, shortcut, favoritesButton, capture, menu, search, banner, scroll, divider, count, hint, access, emptyTitle, emptyDetail, resizeHandle] {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -417,16 +423,16 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         NSLayoutConstraint.activate([
             title.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: ClipStyle.inset),
             title.topAnchor.constraint(equalTo: root.topAnchor, constant: 20),
-            menu.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -17),
+            favoritesButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -ClipStyle.inset),
             menu.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             menu.widthAnchor.constraint(equalToConstant: 28), menu.heightAnchor.constraint(equalToConstant: 28),
-            capture.trailingAnchor.constraint(equalTo: menu.leadingAnchor, constant: -4),
+            capture.trailingAnchor.constraint(equalTo: favoritesButton.leadingAnchor, constant: -4),
             capture.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             capture.widthAnchor.constraint(equalToConstant: 28), capture.heightAnchor.constraint(equalToConstant: 28),
-            favoritesButton.trailingAnchor.constraint(equalTo: capture.leadingAnchor, constant: -4),
+            menu.trailingAnchor.constraint(equalTo: capture.leadingAnchor, constant: -4),
             favoritesButton.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             favoritesButton.widthAnchor.constraint(equalToConstant: 28), favoritesButton.heightAnchor.constraint(equalToConstant: 28),
-            shortcut.trailingAnchor.constraint(equalTo: favoritesButton.leadingAnchor, constant: -8),
+            shortcut.trailingAnchor.constraint(equalTo: menu.leadingAnchor, constant: -8),
             shortcut.centerYAnchor.constraint(equalTo: title.centerYAnchor),
             search.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             search.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
@@ -485,9 +491,9 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
 
     @objc private func toggleFavoritesFilter() {
         showOnlyPinned.toggle()
-        favoritesButton.image = NSImage(systemSymbolName: showOnlyPinned ? "pin.fill" : "pin", accessibilityDescription: "Favorites")?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: showOnlyPinned ? .semibold : .regular))
-        favoritesButton.contentTintColor = showOnlyPinned ? .controlAccentColor : .secondaryLabelColor
+        favoritesButton.setActive(showOnlyPinned)
+        favoritesButton.setAccessibilityValue(showOnlyPinned ? "On" : "Off")
+        favoritesButton.toolTip = showOnlyPinned ? "Show all history (⇧⌘P)" : "Show pinned items (⇧⌘P)"
         refilter()
     }
 
@@ -546,7 +552,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         let rowView = ClipRowView()
         if row < filtered.count {
             let entry = filtered[row]
-            let isFirstPinned = entry.isPinned && (row == 0 || !filtered[row - 1].isPinned)
+            let isFirstPinned = entry.isPinned && row > 0 && !filtered[row - 1].isPinned
             rowView.isFirstPinned = isFirstPinned
         }
         return rowView
@@ -554,6 +560,14 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     func tableViewSelectionDidChange(_ notification: Notification) { updateHint() }
     func windowDidResignKey(_ notification: Notification) { dismiss() }
     func windowDidBecomeKey(_ notification: Notification) { updateAccess() }
+    func windowDidEndLiveResize(_ notification: Notification) { saveWindowGeometry() }
+
+    private func saveWindowGeometry() {
+        guard let window else { return }
+        UserDefaults.standard.set(Double(window.frame.width), forKey: "clip.panelWidth")
+        UserDefaults.standard.set(Double(window.frame.height), forKey: "clip.panelHeight")
+        userPosition = window.frame.origin
+    }
     @objc private func clickedRow() {
         guard table.clickedRow >= 0, let entry = selectedEntry else { return }
         onChoose?(entry)
@@ -613,6 +627,10 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     @discardableResult
     func handleHistoryKey(_ keyCode: UInt16, modifiers: NSEvent.ModifierFlags = []) -> Bool {
         switch keyCode {
+        case 35 where modifiers.contains(.command): // P
+            if modifiers.contains(.shift) { toggleFavoritesFilter() }
+            else if let entry = selectedEntry { onTogglePin?(entry) }
+            return true
         case 53: dismiss(); return true
         case 36, 76:
             if let entry = selectedEntry { onChoose?(entry) }
@@ -645,8 +663,9 @@ final class ClipCell: NSTableCellView {
     private let preview = NSImageView()
     private let title = NSTextField(wrappingLabelWithString: "")
     private let detail = NSTextField(labelWithString: "")
-    private let pinButton = NSButton()
-    private let editButton = NSButton()
+    private let pinButton = ClipIconButton(.pin, label: "Pin to favorites (⌘P)", target: nil, action: nil)
+    private let editButton = ClipIconButton(.pencil, label: "Edit image", target: nil, action: nil)
+    private var textTrailing: NSLayoutConstraint!
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -674,46 +693,36 @@ final class ClipCell: NSTableCellView {
         textGroup.alignment = .leading
         textGroup.spacing = 5
 
-        pinButton.isBordered = false
-        pinButton.bezelStyle = .inline
         pinButton.target = self
         pinButton.action = #selector(pinClicked)
-        pinButton.focusRingType = .none
         pinButton.refusesFirstResponder = true
 
-        editButton.isBordered = false
-        editButton.bezelStyle = .inline
         editButton.target = self
         editButton.action = #selector(editClicked)
-        editButton.focusRingType = .none
         editButton.refusesFirstResponder = true
-        editButton.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Edit Image")?
-            .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
         editButton.contentTintColor = .secondaryLabelColor
         editButton.toolTip = "Edit image in Annotation Editor"
 
-        let actionStack = NSStackView(views: [editButton, pinButton])
-        actionStack.orientation = .horizontal
-        actionStack.spacing = 2
-        actionStack.alignment = .centerY
-
-        for view in [preview, textGroup, actionStack] {
+        for view in [preview, textGroup, editButton, pinButton] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
         }
+        textTrailing = textGroup.trailingAnchor.constraint(equalTo: pinButton.leadingAnchor, constant: -8)
         NSLayoutConstraint.activate([
             preview.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             preview.centerYAnchor.constraint(equalTo: centerYAnchor),
             preview.widthAnchor.constraint(equalToConstant: ClipStyle.thumbnailSize),
             preview.heightAnchor.constraint(equalToConstant: ClipStyle.thumbnailSize),
-            actionStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            actionStack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            pinButton.widthAnchor.constraint(equalToConstant: 22),
-            pinButton.heightAnchor.constraint(equalToConstant: 22),
-            editButton.widthAnchor.constraint(equalToConstant: 22),
-            editButton.heightAnchor.constraint(equalToConstant: 22),
+            pinButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            pinButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            editButton.trailingAnchor.constraint(equalTo: pinButton.leadingAnchor, constant: -4),
+            editButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pinButton.widthAnchor.constraint(equalToConstant: 28),
+            pinButton.heightAnchor.constraint(equalToConstant: 28),
+            editButton.widthAnchor.constraint(equalToConstant: 28),
+            editButton.heightAnchor.constraint(equalToConstant: 28),
             textGroup.leadingAnchor.constraint(equalTo: preview.trailingAnchor, constant: 12),
-            textGroup.trailingAnchor.constraint(equalTo: actionStack.leadingAnchor, constant: -8),
+            textTrailing,
             textGroup.centerYAnchor.constraint(equalTo: centerYAnchor),
             title.widthAnchor.constraint(equalTo: textGroup.widthAnchor),
             title.heightAnchor.constraint(lessThanOrEqualToConstant: 34),
@@ -730,17 +739,12 @@ final class ClipCell: NSTableCellView {
         self.onTogglePin = onTogglePin
         self.onEditImage = onEditImage
         editButton.isHidden = entry.kind != .image
-        if entry.isPinned {
-            pinButton.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "Unpin")?
-                .withSymbolConfiguration(.init(pointSize: 12, weight: .semibold))
-            pinButton.contentTintColor = .controlAccentColor
-            pinButton.toolTip = "Unpin from favorites"
-        } else {
-            pinButton.image = NSImage(systemSymbolName: "pin", accessibilityDescription: "Pin")?
-                .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
-            pinButton.contentTintColor = .tertiaryLabelColor
-            pinButton.toolTip = "Pin to favorites"
-        }
+        textTrailing.constant = entry.kind == .image ? -40 : -8
+        pinButton.setActive(entry.isPinned)
+        let pinLabel = entry.isPinned ? "Unpin from favorites (⌘P)" : "Pin to favorites (⌘P)"
+        pinButton.toolTip = pinLabel
+        pinButton.setAccessibilityLabel(pinLabel)
+        pinButton.setAccessibilityValue(entry.isPinned ? "Pinned" : "Not pinned")
         title.stringValue = entry.displayTitle
         let time = RelativeDateTimeFormatter()
         time.locale = Locale(identifier: "en_US")
@@ -756,13 +760,12 @@ final class ClipCell: NSTableCellView {
             preview.contentTintColor = nil
         } else {
             preview.imageScaling = .scaleNone
-            let symbol = entry.kind == .files ? "doc.on.doc" : entry.kind == .image ? "photo" : "text.alignleft"
-            preview.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 23, weight: .regular))
+            let icon: LucideIcon = entry.kind == .files ? .files : entry.kind == .image ? .image : .type
+            preview.image = icon.image(size: 24)
             preview.contentTintColor = .secondaryLabelColor
         }
         toolTip = nil // Do not obscure the panel with clipboard contents on hover.
-        setAccessibilityElement(true)
+        setAccessibilityElement(false) // Keep the two action buttons reachable by VoiceOver.
         setAccessibilityLabel("\(entry.displayTitle), \(detail.stringValue)")
         setAccessibilityHelp("Press Return to use this item. Press Command-Delete to remove it from history.")
     }

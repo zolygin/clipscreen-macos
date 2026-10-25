@@ -24,7 +24,7 @@ Clip is a lightweight, native macOS clipboard manager and screenshot annotation 
 
 ## 2. File Organization & Architecture
 
-All files are strictly modularized and kept maintainable (under 200 lines for components):
+The main modules are listed below (older line counts are approximate):
 
 ### Core Application
 - **`Sources/Clip/main.swift`** (6 lines)  
@@ -33,8 +33,10 @@ All files are strictly modularized and kept maintainable (under 200 lines for co
   Coordinates system integration, status item menu, global hotkeys, permission onboarding, and panel transitions.
 - **`Sources/Clip/HotKey.swift`** (45 lines)  
   Carbon `EventHotKey` manager registering both `⌥⌘V` (history) and `⌥⌘4` (screenshot).
-- **`Sources/Clip/StatusIcon.swift`** (55 lines)  
-  Pixel-perfect Lucide clipboard vector icon rendering with native menu bar template adaptation.
+- **`Sources/Clip/StatusIcon.swift`**
+  Uses original bundled Lucide clipboard/pause template images for the menu bar.
+- **`Sources/Clip/LucideIcon.swift`**
+  Shared loader for original SVG assets in `Resources/Lucide`, plus consistent icon-button sizing, native hover/press behavior, and an outlined active state.
 
 ### Clipboard Engine
 - **`Sources/Clip/History.swift`** (176 lines)  
@@ -82,7 +84,7 @@ Following the repository's strict verification policy:
    ```bash
    bash scripts/check-ui.sh
    ```
-   Renders and verifies 14 native visual scenarios (dark mode, light mode, empty states, glass vibrancy).
+   Renders and verifies 25 native visual scenarios, right-edge Pin alignment, keyboard pin/filter actions, and 120 resize updates with one geometry commit.
 
 3. **Development App Build**:
    ```bash

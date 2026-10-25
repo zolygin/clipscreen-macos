@@ -8,14 +8,14 @@ enum AnnotationTool: Int, CaseIterable {
     case filledRect
     case highlighter
 
-    var symbolName: String {
+    var icon: LucideIcon {
         switch self {
-        case .pen: return "pencil.tip"
-        case .arrow: return "arrow.up.right"
-        case .line: return "line.diagonal"
-        case .rect: return "square"
-        case .filledRect: return "square.fill"
-        case .highlighter: return "highlighter"
+        case .pen: return .penLine
+        case .arrow: return .arrowUpRight
+        case .line: return .slash
+        case .rect: return .square
+        case .filledRect: return .paintBucket
+        case .highlighter: return .highlighter
         }
     }
 
