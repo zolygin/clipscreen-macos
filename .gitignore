@@ -1,0 +1,27 @@
+# Build products & temporary files
+.build/
+DerivedData/
+*.o
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode & SwiftPM
+*.xcuserstate
+*.xcworkspace
+xcuserdata/
+*.moved-aside
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Editors & IDEs
+.idea/
+.vscode/
+*.swp
+*~
