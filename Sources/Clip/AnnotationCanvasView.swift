@@ -45,28 +45,21 @@ final class AnnotationCanvasView: NSView {
     }
 
     var imageRect: NSRect {
-        let padding: CGFloat = 20
-        let available = NSRect(x: padding, y: padding,
-                               width: max(10, bounds.width - padding * 2),
-                               height: max(10, bounds.height - padding * 2))
-        let imgSize = baseImage.size
-        guard imgSize.width > 0, imgSize.height > 0 else { return available }
-        let scale = min(available.width / imgSize.width, available.height / imgSize.height)
-        let w = imgSize.width * scale
-        let h = imgSize.height * scale
-        return NSRect(x: available.midX - w / 2, y: available.midY - h / 2, width: w, height: h)
+        let pad: CGFloat = 20
+        let avail = NSRect(x: pad, y: pad, width: max(10, bounds.width - pad * 2), height: max(10, bounds.height - pad * 2))
+        let size = baseImage.size
+        guard size.width > 0, size.height > 0 else { return avail }
+        let scale = min(avail.width / size.width, avail.height / size.height)
+        let w = size.width * scale, h = size.height * scale
+        return NSRect(x: avail.midX - w / 2, y: avail.midY - h / 2, width: w, height: h)
     }
 
     private func toImagePoint(_ windowPoint: NSPoint) -> CGPoint? {
-        let viewPoint = convert(windowPoint, from: nil)
-        let rect = imageRect
+        let pt = convert(windowPoint, from: nil), rect = imageRect
         guard rect.width > 0, rect.height > 0 else { return nil }
-        let clampedX = min(max(viewPoint.x, rect.minX), rect.maxX)
-        let clampedY = min(max(viewPoint.y, rect.minY), rect.maxY)
-        let relX = (clampedX - rect.minX) / rect.width
-        let relY = (clampedY - rect.minY) / rect.height
-        return CGPoint(x: relX * baseImage.size.width,
-                       y: relY * baseImage.size.height)
+        let relX = (min(max(pt.x, rect.minX), rect.maxX) - rect.minX) / rect.width
+        let relY = (min(max(pt.y, rect.minY), rect.maxY) - rect.minY) / rect.height
+        return CGPoint(x: relX * baseImage.size.width, y: relY * baseImage.size.height)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -77,26 +70,55 @@ final class AnnotationCanvasView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard var item = currentItem, let pt = toImagePoint(event.locationInWindow) else { return }
+        guard var item = currentItem, let rawPt = toImagePoint(event.locationInWindow) else { return }
+        let isShift = event.modifierFlags.contains(.shift)
+        let pt = isShift ? AnnotationRenderer.snapPoint(from: item.startPoint, to: rawPt) : rawPt
         item.endPoint = pt
         if item.tool == .highlighter || item.tool == .pen {
-            item.points.append(pt)
+            if isShift {
+                item.points = [item.startPoint, pt]
+            } else {
+                item.points.append(pt)
+            }
         }
         currentItem = item
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard var item = currentItem, let pt = toImagePoint(event.locationInWindow) else { return }
+        guard var item = currentItem, let rawPt = toImagePoint(event.locationInWindow) else { return }
+        let isShift = event.modifierFlags.contains(.shift)
+        let pt = isShift ? AnnotationRenderer.snapPoint(from: item.startPoint, to: rawPt) : rawPt
         item.endPoint = pt
         if item.tool == .highlighter || item.tool == .pen {
-            item.points.append(pt)
+            if isShift {
+                item.points = [item.startPoint, pt]
+            } else {
+                item.points.append(pt)
+            }
         }
         items.append(item)
         redoItems.removeAll()
         currentItem = nil
         needsDisplay = true
         onHistoryChange?(canUndo, canRedo)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        guard var item = currentItem,
+              let windowPoint = window?.mouseLocationOutsideOfEventStream,
+              let rawPt = toImagePoint(windowPoint) else { return }
+        let isShift = event.modifierFlags.contains(.shift)
+        let pt = isShift ? AnnotationRenderer.snapPoint(from: item.startPoint, to: rawPt) : rawPt
+        item.endPoint = pt
+        if item.tool == .highlighter || item.tool == .pen {
+            if isShift {
+                item.points = [item.startPoint, pt]
+            }
+        }
+        currentItem = item
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {

@@ -33,6 +33,8 @@ All files are strictly modularized and kept maintainable (under 200 lines for co
   Coordinates system integration, status item menu, global hotkeys, permission onboarding, and panel transitions.
 - **`Sources/Clip/HotKey.swift`** (45 lines)  
   Carbon `EventHotKey` manager registering both `⌥⌘V` (history) and `⌥⌘4` (screenshot).
+- **`Sources/Clip/StatusIcon.swift`** (55 lines)  
+  Pixel-perfect Lucide clipboard vector icon rendering with native menu bar template adaptation.
 
 ### Clipboard Engine
 - **`Sources/Clip/History.swift`** (176 lines)  

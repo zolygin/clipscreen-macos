@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "Clip — Clipboard history")
+            button.image = StatusIcon.clipboard()
             button.image?.isTemplate = true
             button.toolTip = "Clip · Clipboard history · ⌥⌘V"
             button.target = self
@@ -95,8 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let paused = monitor.paused ? "History is paused. Choose Resume Recording in the menu to continue." : nil
         panel.refresh(model?.entries ?? [], message: model?.error ?? actionMessage ?? hotKeyMessage ?? paused ?? monitorMessage,
                       readPermissionNeeded: needsReadPermission, isLoading: model?.isLoading ?? true)
-        statusItem?.button?.image = NSImage(systemSymbolName: monitor.paused ? "pause.rectangle" : "clipboard",
-                                            accessibilityDescription: "Clip — Clipboard history")
+        statusItem?.button?.image = StatusIcon.clipboard(paused: monitor.paused)
         statusItem?.button?.image?.isTemplate = true
     }
 

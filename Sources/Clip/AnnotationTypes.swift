@@ -41,6 +41,20 @@ struct AnnotationItem {
 }
 
 enum AnnotationRenderer {
+    static func snapPoint(from start: CGPoint, to current: CGPoint) -> CGPoint {
+        let dx = current.x - start.x
+        let dy = current.y - start.y
+        let distance = hypot(dx, dy)
+        guard distance > 0 else { return current }
+        let angle = atan2(dy, dx)
+        let step = CGFloat.pi / 4.0
+        let snappedAngle = (angle / step).rounded() * step
+        return CGPoint(
+            x: start.x + distance * cos(snappedAngle),
+            y: start.y + distance * sin(snappedAngle)
+        )
+    }
+
     static func render(item: AnnotationItem, in context: CGContext) {
         context.saveGState()
         let color = item.color
