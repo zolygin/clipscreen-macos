@@ -3,6 +3,17 @@ import AppKit
 final class AnnotationToolButton: ClipIconButton {
     var widthMenu: (() -> NSMenu)?
     override func menu(for event: NSEvent) -> NSMenu? { widthMenu?() }
+
+    override func accessibilityPerformShowMenu() -> Bool {
+        guard let menu = widthMenu?() else { return false }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.maxY + 4), in: self)
+        return true
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 109, event.modifierFlags.contains(.shift), accessibilityPerformShowMenu() { return }
+        super.keyDown(with: event)
+    }
 }
 
 final class ScreenshotEditorToolbar: NSVisualEffectView {
@@ -18,10 +29,8 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     private var toolButtons: [AnnotationTool: AnnotationToolButton] = [:]
     private var colorButtons: [NSColor: ColorCircleButton] = [:]
     private var widths: [AnnotationTool: CGFloat] = [:]
-    private var activeTool: AnnotationTool = .pen
     private var activeColor: NSColor = .systemRed
     private var ownsColorPanel = false
-    private let widthControl = NSPopUpButton(frame: .zero, pullsDown: true)
     private lazy var customColor = CustomColorButton(target: self, action: #selector(openColorPicker))
     private let topRow = NSStackView()
     private let bottomRow = NSStackView()
@@ -55,13 +64,6 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
             toolButtons[tool] = button
             tools.addArrangedSubview(button)
         }
-        tools.addArrangedSubview(makeSeparator())
-        widthControl.bezelStyle = .rounded
-        widthControl.controlSize = .small
-        widthControl.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        widthControl.setAccessibilityLabel("Line width")
-        size(widthControl, width: 62, height: 28)
-        tools.addArrangedSubview(widthControl)
 
         configure(colorGroup)
         colorGroup.setHuggingPriority(.required, for: .horizontal)
@@ -127,7 +129,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     override func layout() {
-        let compact = bounds.width < 780
+        let compact = bounds.width < 720
         if compact != isCompact {
             isCompact = compact
             colorGroup.removeFromSuperview()
@@ -160,19 +162,15 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     func updateToolSelection(activeTool: AnnotationTool) {
-        self.activeTool = activeTool
         for (tool, button) in toolButtons {
             button.setActive(tool == activeTool)
-            button.setAccessibilityValue(tool == activeTool ? "Selected" : "Not selected")
+            let selected = tool == activeTool ? "Selected" : "Not selected"
+            let width = tool.usesLineWidth ? StrokeWidthMenu.label(lineWidth(for: tool)) : "Solid fill"
+            button.setAccessibilityValue("\(selected), \(width)")
+            button.toolTip = tool.usesLineWidth ? "\(tool.title) · \(width) · Right-click for line width"
+                : "Filled Rectangle — drag to cover an area"
+            button.setAccessibilityHelp(tool.usesLineWidth ? "Right-click or press Shift-F10 for line width" : "Solid fill has no outline width")
         }
-        let label = activeTool.usesLineWidth ? StrokeWidthMenu.label(lineWidth(for: activeTool)) : "Fill"
-        widthControl.menu = StrokeWidthMenu(tool: activeTool, width: lineWidth(for: activeTool), popupTitle: label) {
-            [weak self] in self?.selectLineWidth($0, for: activeTool)
-        }
-        widthControl.selectItem(at: 0)
-        widthControl.isEnabled = activeTool.usesLineWidth
-        widthControl.setAccessibilityValue(label)
-        widthControl.toolTip = activeTool.usesLineWidth ? "Line width · also available by right-clicking a tool or annotation" : "Solid fill has no outline width"
     }
 
     func updateColorSelection(activeColor: NSColor) {

@@ -37,7 +37,7 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 - **Screenshot Button**: Integrated camera button (`⌥⌘4`) in the header launches interactive area selection and saves the screenshot directly into your clipboard history.
 - **Consistent Icons**: Original Lucide SVGs across history, search, menu bar, and screenshot tools; bundled locally with their license.
 - **Pinned Items**: Pin buttons stay at the far right. Use `⌘P` for the selected item or `⇧⌘P` to filter pinned items.
-- **Screenshot Styling**: Choose stroke widths from the toolbar or right-click a tool or drawn annotation. Custom colors use a permanent rainbow-plus button; width edits support Undo/Redo.
+- **Screenshot Styling**: Right-click a tool or drawn annotation to choose stroke width. Outline and solid rectangles use matching square icons. Custom colors use a permanent rainbow-plus button; width edits support Undo/Redo.
 - **Window Positioning**: Draggable floating panel that remembers its position across invocations.
 - **Native Design**: Built with AppKit and modern macOS materials (Liquid Glass on macOS 26, standard system blur with Reduce Transparency fallback), respecting system Dark/Light themes.
 - **Zero Bloat**: No Electron, no web runtime, zero external dependencies, minimal memory footprint.

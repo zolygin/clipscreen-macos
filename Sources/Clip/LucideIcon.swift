@@ -6,7 +6,7 @@ enum LucideIcon: String, CaseIterable {
     case penLine = "pen-line"
     case arrowUpRight = "arrow-up-right"
     case slash
-    case paintBucket = "paint-bucket"
+    case squareFilled = "square-filled"
     case undo = "undo-2"
     case redo = "redo-2"
 

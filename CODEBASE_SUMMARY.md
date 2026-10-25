@@ -93,4 +93,4 @@ Following the repository's strict verification policy:
    Builds `.build/Clip.app` with stable ad-hoc signing (`local.kirill.clip`) to preserve macOS Accessibility TCC permissions across builds.
 
 ### Editor controls
-`StrokeWidthMenu.swift` shares width presets across tool, visible dropdown and annotation context menus. `CustomColorButton.swift` draws the permanent rainbow-plus control. The canvas hit-tests the topmost annotation and uses undo/redo snapshots for reversible width edits. `Tests/AnnotationChecks.swift` checks menus, actual editor wiring/reflow, exported pixels and light/dark toolbars at 620–1000 pt.
+`StrokeWidthMenu.swift` shares width presets across tool and annotation context menus, without a separate toolbar dropdown. `CustomColorButton.swift` draws the permanent rainbow-plus control. The canvas hit-tests the topmost annotation and uses undo/redo snapshots for reversible width edits. `Tests/AnnotationChecks.swift` checks menus, actual editor wiring/reflow, exported pixels and light/dark toolbars at 620–1000 pt.

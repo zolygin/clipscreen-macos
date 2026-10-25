@@ -14,7 +14,7 @@ enum AnnotationTool: Int, CaseIterable {
         case .arrow: return .arrowUpRight
         case .line: return .slash
         case .rect: return .square
-        case .filledRect: return .paintBucket
+        case .filledRect: return .squareFilled
         case .highlighter: return .highlighter
         }
     }

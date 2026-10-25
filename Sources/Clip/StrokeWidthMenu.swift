@@ -1,13 +1,13 @@
 import AppKit
 
-/// Shared by the visible width control, tool shortcuts and existing annotations.
+/// Shared by tool context menus and existing annotations.
 final class StrokeWidthMenu: NSMenu {
     private let onSelect: (CGFloat) -> Void
 
-    init(tool: AnnotationTool, width: CGFloat, popupTitle: String? = nil, onSelect: @escaping (CGFloat) -> Void) {
+    init(tool: AnnotationTool, width: CGFloat, onSelect: @escaping (CGFloat) -> Void) {
         self.onSelect = onSelect
         super.init(title: "Line width")
-        let heading = NSMenuItem(title: popupTitle ?? "\(tool.title) · Line width", action: nil, keyEquivalent: "")
+        let heading = NSMenuItem(title: "\(tool.title) · Line width", action: nil, keyEquivalent: "")
         heading.isEnabled = false
         addItem(heading)
         if !tool.usesLineWidth {

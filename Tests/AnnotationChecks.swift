@@ -3,6 +3,13 @@ import AppKit
 /// Native event handlers and menus, exercised without showing a window or palette.
 enum AnnotationChecks {
     static func run(directory: URL) throws -> Int {
+        let outline = NSBitmapImageRep(data: AnnotationTool.rect.icon.image().tiffRepresentation!)!
+        let filled = NSBitmapImageRep(data: AnnotationTool.filledRect.icon.image().tiffRepresentation!)!
+        precondition(outline.pixelsWide == filled.pixelsWide && outline.pixelsHigh == filled.pixelsHigh)
+        precondition(outline.colorAt(x: outline.pixelsWide / 2, y: outline.pixelsHigh / 2)!.alphaComponent < 0.01)
+        precondition(filled.colorAt(x: filled.pixelsWide / 2, y: filled.pixelsHigh / 2)!.alphaComponent > 0.99,
+                     "Filled Rectangle needs a filled square icon, not a bucket")
+        print("PASS matching outline/filled square icons: empty and opaque centers")
         let image = NSImage(size: NSSize(width: 240, height: 160), flipped: false) { rect in
             NSColor.white.setFill()
             rect.fill()
@@ -109,19 +116,19 @@ enum AnnotationChecks {
         arrowButton.performClick(nil)
         precondition(editorCanvas.activeTool == .arrow && editorCanvas.activeLineWidth == 6,
                      "Changing tools must restore that tool's width on the actual canvas")
-        for value: CGFloat in [620, 1000, 680, 780, 620] {
+        for value: CGFloat in [620, 1000, 680, 719, 720, 620] {
             editorWindow.setContentSize(NSSize(width: value, height: 440))
             content.layoutSubtreeIfNeeded()
             content.layoutSubtreeIfNeeded()
-            precondition(editorToolbar.frame.height == (value < 780 ? 80 : 44),
+            precondition(editorToolbar.frame.height == (value < 720 ? 80 : 44),
                          "Editor must reserve the adaptive toolbar height")
             verifyToolbar(editorToolbar)
         }
-        print("PASS actual editor reflow at 620/680/780/1000 pt, with reserved canvas space")
+        print("PASS actual editor reflow at 620/680/719/720/1000 pt, with reserved canvas space")
 
         var count = 1
         for appearance: NSAppearance.Name in [.aqua, .darkAqua] {
-            for size: CGFloat in [620, 680, 780, 1000] {
+            for size: CGFloat in [620, 680, 720, 1000] {
                 let previewWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: size, height: 80),
                                              styleMask: [.borderless], backing: .buffered, defer: false)
                 let preview = ScreenshotEditorToolbar()
@@ -142,7 +149,7 @@ enum AnnotationChecks {
                 let name = "editor-controls-\(theme)-\(Int(size))"
                 try bitmap.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(name + ".png"))
                 count += 1
-                print("PASS \(name): adaptive grouping, stroke value, custom rainbow state")
+                print("PASS \(name): adaptive grouping, no redundant width control, custom rainbow state")
             }
         }
         return count
@@ -158,6 +165,6 @@ enum AnnotationChecks {
         }
         precondition(controls.filter { $0 is AnnotationToolButton }.count == 6)
         precondition(controls.filter { $0 is CustomColorButton }.count == 1)
-        precondition(controls.filter { $0 is NSPopUpButton }.count == 1)
+        precondition(!controls.contains { $0 is NSPopUpButton }, "Width belongs in context menus only")
     }
 }
