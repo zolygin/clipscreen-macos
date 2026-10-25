@@ -23,13 +23,11 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
 
         let editorWindow = ScreenshotEditorWindow(
             contentRect: NSRect(origin: .zero, size: initialSize),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false
         )
         editorWindow.minSize = NSSize(width: 620, height: 400)
-        editorWindow.title = "Clip Screenshot Editor"
-        editorWindow.titlebarAppearsTransparent = true
-        editorWindow.titleVisibility = .hidden
+        editorWindow.title = "Screenshot Editor"
         editorWindow.isReleasedWhenClosed = false
         editorWindow.center()
         super.init(window: editorWindow)
@@ -62,7 +60,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             toolbar.topAnchor.constraint(equalTo: content.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 52),
+            toolbar.heightAnchor.constraint(equalToConstant: 44),
 
             separator.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             separator.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -85,7 +83,6 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             self.canvas.activeColor = color
             self.toolbar.updateColorSelection(activeColor: color)
         }
-        toolbar.onOpenColorPicker = { [weak self] in self?.openColorPicker() }
         toolbar.onUndo = { [weak self] in self?.undoAction() }
         toolbar.onRedo = { [weak self] in self?.redoAction() }
         toolbar.onSave = { [weak self] in self?.saveAction() }
@@ -98,19 +95,6 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
 
         toolbar.updateToolSelection(activeTool: canvas.activeTool)
         toolbar.updateColorSelection(activeColor: canvas.activeColor)
-    }
-
-    private func openColorPicker() {
-        let panel = NSColorPanel.shared
-        panel.color = canvas.activeColor
-        panel.setTarget(self)
-        panel.setAction(#selector(colorPanelChanged(_:)))
-        panel.orderFront(nil)
-    }
-
-    @objc private func colorPanelChanged(_ sender: NSColorPanel) {
-        canvas.activeColor = sender.color
-        toolbar.updateColorSelection(activeColor: sender.color)
     }
 
     @objc private func undoAction() { canvas.undo() }
@@ -140,7 +124,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
     }
 
     private func closeEditor() {
-        NSColorPanel.shared.close()
+        toolbar.deactivateColorPicker()
         window?.close()
     }
 
@@ -150,7 +134,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSColorPanel.shared.close()
+        toolbar.deactivateColorPicker()
         onCancel?()
     }
 }

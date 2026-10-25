@@ -55,12 +55,12 @@ All files are strictly modularized and kept maintainable (under 200 lines for co
   `AnnotationTool` enum, `AnnotationItem` data model, and high-performance Quartz 2D renderers (Pen, Arrow, Line, Rectangle, Filled Rectangle, Highlighter).
 - **`Sources/Clip/AnnotationCanvasView.swift`** (173 lines)  
   Interactive drawing view, aspect-fit image scaling (100% visible, no clipping), mouse drag tracking, and independent Undo/Redo stacks.
-- **`Sources/Clip/ScreenshotEditorToolbar.swift`** (183 lines)  
-  Dedicated 52 pt header bar with 78 pt safety offset for macOS window traffic lights (🔴 🟡 🟢), tool buttons, color chips, and action handlers.
+- **`Sources/Clip/ScreenshotEditorToolbar.swift`** (175 lines)  
+  Dedicated 44 pt toolbar placed strictly below the native titlebar with tool buttons, color chips, native `NSColorWell` popover, and action handlers.
 - **`Sources/Clip/ScreenshotEditorWindow.swift`** (30 lines)  
   Custom `NSWindow` intercepting keyboard equivalents (`⌘Z`, `⇧⌘Z`, `⌘C`, `⌘S`).
-- **`Sources/Clip/ScreenshotEditor.swift`** (156 lines)  
-  `ScreenshotEditorWindowController` coordinating the window, canvas, toolbar, `NSColorPanel`, and export actions.
+- **`Sources/Clip/ScreenshotEditor.swift`** (140 lines)  
+  `ScreenshotEditorWindowController` coordinating standard window titlebar (dedicated to dragging and 🔴 🟡 🟢), canvas, and export actions.
 - **`Sources/Clip/ColorCircleButton.swift`** (41 lines)  
   Custom palette color circle buttons with active selection rings.
 

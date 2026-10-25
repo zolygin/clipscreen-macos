@@ -3,7 +3,6 @@ import AppKit
 final class ScreenshotEditorToolbar: NSVisualEffectView {
     var onSelectTool: ((AnnotationTool) -> Void)?
     var onSelectColor: ((NSColor) -> Void)?
-    var onOpenColorPicker: (() -> Void)?
     var onUndo: (() -> Void)?
     var onRedo: (() -> Void)?
     var onSave: (() -> Void)?
@@ -11,7 +10,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
 
     private var toolButtons: [AnnotationTool: NSButton] = [:]
     private var colorButtons: [NSColor: NSButton] = [:]
-    private var pickerButton: NSButton?
+    private let colorWell = NSColorWell()
     private(set) var undoButton: NSButton!
     private(set) var redoButton: NSButton!
 
@@ -43,8 +42,8 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 78),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
             stack.heightAnchor.constraint(equalToConstant: 36)
         ])
@@ -72,16 +71,16 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
             stack.addArrangedSubview(btn)
         }
 
-        let pickerBtn = NSButton(image: NSImage(systemSymbolName: "paintpalette.fill", accessibilityDescription: "Custom Color Picker")!,
-                                 target: self, action: #selector(openColorPickerClicked))
-        pickerBtn.isBordered = false
-        pickerBtn.bezelStyle = .inline
-        pickerBtn.toolTip = "Custom color picker…"
-        pickerBtn.contentTintColor = .secondaryLabelColor
-        pickerBtn.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        pickerBtn.heightAnchor.constraint(equalToConstant: 26).isActive = true
-        self.pickerButton = pickerBtn
-        stack.addArrangedSubview(pickerBtn)
+        if #available(macOS 13.0, *) {
+            colorWell.colorWellStyle = .minimal
+        }
+        colorWell.color = .systemRed
+        colorWell.toolTip = "Custom color…"
+        colorWell.target = self
+        colorWell.action = #selector(colorWellChanged(_:))
+        colorWell.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        colorWell.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        stack.addArrangedSubview(colorWell)
 
         stack.addArrangedSubview(makeSeparator())
 
@@ -142,25 +141,16 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     func updateColorSelection(activeColor: NSColor) {
-        var matchedPreset = false
         for (color, btn) in colorButtons {
             if let circle = btn as? ColorCircleButton {
-                let match = (color == activeColor)
-                circle.isSelected = match
-                if match { matchedPreset = true }
+                circle.isSelected = (color == activeColor)
             }
         }
-        if let pickerBtn = pickerButton {
-            pickerBtn.wantsLayer = true
-            pickerBtn.layer?.cornerRadius = 6
-            if !matchedPreset {
-                pickerBtn.contentTintColor = activeColor
-                pickerBtn.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
-            } else {
-                pickerBtn.contentTintColor = .secondaryLabelColor
-                pickerBtn.layer?.backgroundColor = nil
-            }
-        }
+        colorWell.color = activeColor
+    }
+
+    func deactivateColorPicker() {
+        colorWell.deactivate()
     }
 
     @objc private func toolClicked(_ sender: NSButton) {
@@ -170,10 +160,12 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
 
     @objc private func colorClicked(_ sender: ColorCircleButton) {
         onSelectColor?(sender.color)
+        updateColorSelection(activeColor: sender.color)
     }
 
-    @objc private func openColorPickerClicked() {
-        onOpenColorPicker?()
+    @objc private func colorWellChanged(_ sender: NSColorWell) {
+        onSelectColor?(sender.color)
+        updateColorSelection(activeColor: sender.color)
     }
 
     @objc private func undoClicked() { onUndo?() }
