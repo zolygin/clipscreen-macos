@@ -149,11 +149,11 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         shortcut.font = .systemFont(ofSize: 13, weight: .medium)
         shortcut.textColor = .secondaryLabelColor
 
-        let capture = NSButton(image: NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Capture Area (⇧⌘4)")!,
+        let capture = NSButton(image: NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Capture Area (⌥⌘4)")!,
                                target: self, action: #selector(triggerCaptureScreen))
         capture.isBordered = false
         capture.bezelStyle = .inline
-        capture.toolTip = "Capture screen area to clipboard (⇧⌘4)"
+        capture.toolTip = "Capture screen area to clipboard (⌥⌘4)"
         capture.focusRingType = .none
         capture.refusesFirstResponder = true
 

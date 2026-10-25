@@ -1,0 +1,89 @@
+# Clip — Codebase Architecture & Summary
+
+Clip is a lightweight, native macOS clipboard manager and screenshot annotation utility inspired by Windows clipboard history (`Win+V`) and Snipping Tool, designed with Apple Human Interface Guidelines and AppKit.
+
+---
+
+## 1. Global Shortcuts
+
+| Shortcut | Action | Scope | Description |
+| :--- | :--- | :--- | :--- |
+| **`⌥⌘V`** (`Option + Command + V`) | **Open Clipboard History** | System-wide Global HotKey | Opens the 100-item clipboard history floating panel. |
+| **`⌥⌘4`** (`Option + Command + 4`) | **Capture Screen Area & Edit** | System-wide Global HotKey | Triggers interactive screen capture and opens the annotation editor. |
+| **`Return`** | **Paste Item / Copy & Close** | In-app | In history panel: pastes item to target app.<br>In screenshot editor: copies annotated image and closes. |
+| **`Right-Click`** | **Edit Image** | History Panel | Right-clicking any image entry opens it directly in the annotation editor. |
+| **`⌘Z`** | **Undo** | Screenshot Editor | Reverts the last drawn annotation. |
+| **`⇧⌘Z`** | **Redo** | Screenshot Editor | Restores the previously undone annotation. |
+| **`⌘S`** | **Save…** | Screenshot Editor | Exports annotated screenshot to PNG on disk. |
+| **`Esc`** | **Close** | Both panels | Closes the panel/editor window without terminating Clip. |
+
+> **Why `⌥⌘4`?**  
+> macOS reserves `⌘⇧4` for its native screencapture utility. Using `⌥⌘4` provides a natural, memorable companion to `⌥⌘V` without colliding with system shortcuts.
+
+---
+
+## 2. File Organization & Architecture
+
+All files are strictly modularized and kept maintainable (under 200 lines for components):
+
+### Core Application
+- **`Sources/Clip/main.swift`** (6 lines)  
+  Application entry point initializing `NSApplication` with `AppDelegate`.
+- **`Sources/Clip/AppDelegate.swift`** (344 lines)  
+  Coordinates system integration, status item menu, global hotkeys, permission onboarding, and panel transitions.
+- **`Sources/Clip/HotKey.swift`** (45 lines)  
+  Carbon `EventHotKey` manager registering both `⌥⌘V` (history) and `⌥⌘4` (screenshot).
+
+### Clipboard Engine
+- **`Sources/Clip/History.swift`** (176 lines)  
+  Pure data layer: `ClipEntry`, `ClipPayload`, atomic index serialization, LRU eviction (100 items), and disk cleanup.
+- **`Sources/Clip/HistoryModel.swift`** (79 lines)  
+  Thread-safe in-memory cache and background persistence queue.
+- **`Sources/Clip/Pasteboard.swift`** (154 lines)  
+  NSPasteboard polling, change detection, filtering transient/password manager types, and data serialization.
+- **`Sources/Clip/PasteController.swift`** (73 lines)  
+  Accessibility-driven synthetic paste (`⌘V`) into the previous frontmost application.
+
+### UI & History Window
+- **`Sources/Clip/HistoryPanel.swift`** (472 lines)  
+  Floating HUD panel with search field, scrollable entries, keyboard navigation (`↑`/`↓`), and right-click actions.
+- **`Sources/Clip/PanelSurface.swift`** (143 lines)  
+  Visual styling, vibrant translucent background, border shadows, and rounded glass effects.
+
+### Screenshot & Annotation Editor (Modularized < 200 lines each)
+- **`Sources/Clip/AnnotationTypes.swift`** (157 lines)  
+  `AnnotationTool` enum, `AnnotationItem` data model, and high-performance Quartz 2D renderers (Pen, Arrow, Line, Rectangle, Filled Rectangle, Highlighter).
+- **`Sources/Clip/AnnotationCanvasView.swift`** (173 lines)  
+  Interactive drawing view, aspect-fit image scaling (100% visible, no clipping), mouse drag tracking, and independent Undo/Redo stacks.
+- **`Sources/Clip/ScreenshotEditorToolbar.swift`** (183 lines)  
+  Dedicated 52 pt header bar with 78 pt safety offset for macOS window traffic lights (🔴 🟡 🟢), tool buttons, color chips, and action handlers.
+- **`Sources/Clip/ScreenshotEditorWindow.swift`** (30 lines)  
+  Custom `NSWindow` intercepting keyboard equivalents (`⌘Z`, `⇧⌘Z`, `⌘C`, `⌘S`).
+- **`Sources/Clip/ScreenshotEditor.swift`** (156 lines)  
+  `ScreenshotEditorWindowController` coordinating the window, canvas, toolbar, `NSColorPanel`, and export actions.
+- **`Sources/Clip/ColorCircleButton.swift`** (41 lines)  
+  Custom palette color circle buttons with active selection rings.
+
+---
+
+## 3. Verification & Build Commands
+
+Following the repository's strict verification policy:
+
+1. **Lightweight Typecheck & Unit Tests**:
+   ```bash
+   bash scripts/check.sh
+   ```
+   Runs 20 isolated unit tests without touching system clipboard or launching full apps.
+
+2. **UI & Theme Scenario Tests**:
+   ```bash
+   bash scripts/check-ui.sh
+   ```
+   Renders and verifies 14 native visual scenarios (dark mode, light mode, empty states, glass vibrancy).
+
+3. **Development App Build**:
+   ```bash
+   bash scripts/build-app.sh
+   ```
+   Builds `.build/Clip.app` with stable ad-hoc signing (`local.kirill.clip`) to preserve macOS Accessibility TCC permissions across builds.

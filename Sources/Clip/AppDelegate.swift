@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.lastExternalApp = app
         }
         hotKey.onPress = { [weak self] in self?.togglePanel() }
+        hotKey.onCapturePress = { [weak self] in self?.captureScreen() }
         let result = hotKey.register()
         if result != noErr {
             hotKeyMessage = "⌥⌘V is unavailable (code \(result)). Free this shortcut in the other app, then restart Clip."
@@ -168,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         history.keyEquivalentModifierMask = [.command, .option]
         let capture = item("Capture Area to Clipboard", #selector(captureScreen))
         capture.keyEquivalent = "4"
-        capture.keyEquivalentModifierMask = [.command, .shift]
+        capture.keyEquivalentModifierMask = [.command, .option]
         menu.addItem(.separator())
         _ = item(monitor.paused ? "Resume Recording" : "Pause Recording", #selector(togglePause))
         let login = item("Launch at Login", #selector(toggleLogin))
@@ -327,6 +328,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(app)
         let edit = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"))
+        let redoItem = NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(redoItem)
+        editMenu.addItem(.separator())
         for (name, selector, key) in [("Cut", "cut:", "x"), ("Copy", "copy:", "c"),
                                       ("Paste", "paste:", "v"), ("Select All", "selectAll:", "a")] {
             editMenu.addItem(NSMenuItem(title: name, action: Selector(selector), keyEquivalent: key))
