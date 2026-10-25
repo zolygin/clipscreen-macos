@@ -60,7 +60,7 @@ The main modules are listed below (older line counts are approximate):
 - **`Sources/Clip/AnnotationCanvasView.swift`** (173 lines)  
   Interactive drawing view, aspect-fit image scaling (100% visible, no clipping), mouse drag tracking, and independent Undo/Redo stacks.
 - **`Sources/Clip/ScreenshotEditorToolbar.swift`** (175 lines)  
-  Dedicated 44 pt toolbar placed strictly below the native titlebar with tool buttons, color chips, native `NSColorWell` popover, and action handlers.
+  Adaptive 44/80 pt toolbar placed strictly below the native titlebar with tool buttons, color chips, per-tool stroke widths, persistent rainbow custom-color button and native color panel, and action handlers.
 - **`Sources/Clip/ScreenshotEditorWindow.swift`** (30 lines)  
   Custom `NSWindow` intercepting keyboard equivalents (`⌘Z`, `⇧⌘Z`, `⌘C`, `⌘S`).
 - **`Sources/Clip/ScreenshotEditor.swift`** (140 lines)  
@@ -84,10 +84,13 @@ Following the repository's strict verification policy:
    ```bash
    bash scripts/check-ui.sh
    ```
-   Renders and verifies 33 native visual scenarios, right-edge Pin alignment, keyboard pin/filter actions, and 120 resize updates with one geometry commit.
+   Renders and verifies 42 native visual scenarios, right-edge Pin alignment, keyboard pin/filter actions, and 120 resize updates with one geometry commit.
 
 3. **Development App Build**:
    ```bash
    bash scripts/build-app.sh
    ```
    Builds `.build/Clip.app` with stable ad-hoc signing (`local.kirill.clip`) to preserve macOS Accessibility TCC permissions across builds.
+
+### Editor controls
+`StrokeWidthMenu.swift` shares width presets across tool, visible dropdown and annotation context menus. `CustomColorButton.swift` draws the permanent rainbow-plus control. The canvas hit-tests the topmost annotation and uses undo/redo snapshots for reversible width edits. `Tests/AnnotationChecks.swift` checks menus, actual editor wiring/reflow, exported pixels and light/dark toolbars at 620–1000 pt.

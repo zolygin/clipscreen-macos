@@ -33,7 +33,7 @@ enum LucideIcon: String, CaseIterable {
 
 /// One surface for hover, press and active state. A native button bezel would
 /// add a second, shorter hover fill over the active outline.
-final class ClipIconButton: NSButton {
+class ClipIconButton: NSButton {
     private var isActive = false
     private var isHovered = false
     private var hoverTrackingArea: NSTrackingArea?

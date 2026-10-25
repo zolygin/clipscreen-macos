@@ -4,6 +4,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
     private let canvas: AnnotationCanvasView
     private let toolbar = ScreenshotEditorToolbar()
     private let image: NSImage
+    private var toolbarHeight: NSLayoutConstraint!
     var onComplete: ((NSImage) -> Void)?
     var onCancel: (() -> Void)?
 
@@ -60,7 +61,6 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             toolbar.topAnchor.constraint(equalTo: content.topAnchor),
             toolbar.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: 44),
 
             separator.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
             separator.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -72,12 +72,17 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             canvas.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             canvas.bottomAnchor.constraint(equalTo: content.bottomAnchor)
         ])
+        toolbarHeight = toolbar.heightAnchor.constraint(equalToConstant: toolbar.preferredHeight)
+        toolbarHeight.isActive = true
+        toolbar.onPreferredHeightChange = { [weak self] height in self?.toolbarHeight.constant = height }
 
         toolbar.onSelectTool = { [weak self] tool in
             guard let self else { return }
             self.canvas.activeTool = tool
+            self.canvas.activeLineWidth = self.toolbar.lineWidth(for: tool)
             self.toolbar.updateToolSelection(activeTool: tool)
         }
+        toolbar.onSelectLineWidth = { [weak self] width in self?.canvas.activeLineWidth = width }
         toolbar.onSelectColor = { [weak self] color in
             guard let self else { return }
             self.canvas.activeColor = color

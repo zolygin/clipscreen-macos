@@ -218,6 +218,7 @@ struct PanelPreview {
             renderCount += 1
             print("PASS \(name): original Lucide tool, undo and redo icons")
         }
+        renderCount += try AnnotationChecks.run(directory: directory)
         print("\(renderCount) native view scenarios passed. No real clipboard data or permissions used.")
     }
 

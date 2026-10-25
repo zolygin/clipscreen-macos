@@ -3,10 +3,13 @@ import AppKit
 final class AnnotationCanvasView: NSView {
     let baseImage: NSImage
     private(set) var items: [AnnotationItem] = []
-    private(set) var redoItems: [AnnotationItem] = []
+    private var undoSnapshots: [[AnnotationItem]] = []
+    private var redoSnapshots: [[AnnotationItem]] = []
     private var currentItem: AnnotationItem?
 
-    var activeTool: AnnotationTool = .pen
+    var activeTool: AnnotationTool = .pen {
+        didSet { if activeTool != oldValue { activeLineWidth = activeTool.defaultLineWidth } }
+    }
     var activeColor: NSColor = .systemRed
     var activeLineWidth: CGFloat = 3.5
 
@@ -20,28 +23,62 @@ final class AnnotationCanvasView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    var canUndo: Bool { !items.isEmpty }
-    var canRedo: Bool { !redoItems.isEmpty }
+    var canUndo: Bool { !undoSnapshots.isEmpty }
+    var canRedo: Bool { !redoSnapshots.isEmpty }
 
     func undo() {
-        guard let item = items.popLast() else { return }
-        redoItems.append(item)
+        guard let snapshot = undoSnapshots.popLast() else { return }
+        redoSnapshots.append(items)
+        items = snapshot
         needsDisplay = true
         onHistoryChange?(canUndo, canRedo)
     }
 
     func redo() {
-        guard let item = redoItems.popLast() else { return }
-        items.append(item)
+        guard let snapshot = redoSnapshots.popLast() else { return }
+        undoSnapshots.append(items)
+        items = snapshot
         needsDisplay = true
         onHistoryChange?(canUndo, canRedo)
     }
 
     func clear() {
+        guard !items.isEmpty else { return }
+        recordUndo()
         items.removeAll()
-        redoItems.removeAll()
         needsDisplay = true
-        onHistoryChange?(false, false)
+        onHistoryChange?(canUndo, canRedo)
+    }
+
+    private func recordUndo() {
+        undoSnapshots.append(items)
+        redoSnapshots.removeAll()
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard imageRect.contains(convert(event.locationInWindow, from: nil)),
+              let point = toImagePoint(event.locationInWindow) else { return nil }
+        let tolerance = 6 * baseImage.size.width / max(1, imageRect.width)
+        return widthMenu(at: point, tolerance: tolerance)
+    }
+
+    func widthMenu(at point: CGPoint, tolerance: CGFloat = 6) -> NSMenu? {
+        guard let index = items.indices.reversed().first(where: {
+            AnnotationRenderer.contains(point, in: items[$0], tolerance: tolerance)
+        }) else { return nil }
+        let item = items[index]
+        return StrokeWidthMenu(tool: item.tool, width: item.lineWidth) { [weak self] in
+            self?.setLineWidth($0, at: index)
+        }
+    }
+
+    func setLineWidth(_ width: CGFloat, at index: Int) {
+        guard items.indices.contains(index), items[index].tool.usesLineWidth,
+              items[index].tool.lineWidths.contains(width), items[index].lineWidth != width else { return }
+        recordUndo()
+        items[index].lineWidth = width
+        needsDisplay = true
+        onHistoryChange?(canUndo, canRedo)
     }
 
     var imageRect: NSRect {
@@ -97,8 +134,8 @@ final class AnnotationCanvasView: NSView {
                 item.points.append(pt)
             }
         }
+        recordUndo()
         items.append(item)
-        redoItems.removeAll()
         currentItem = nil
         needsDisplay = true
         onHistoryChange?(canUndo, canRedo)

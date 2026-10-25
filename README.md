@@ -37,6 +37,7 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 - **Screenshot Button**: Integrated camera button (`⌥⌘4`) in the header launches interactive area selection and saves the screenshot directly into your clipboard history.
 - **Consistent Icons**: Original Lucide SVGs across history, search, menu bar, and screenshot tools; bundled locally with their license.
 - **Pinned Items**: Pin buttons stay at the far right. Use `⌘P` for the selected item or `⇧⌘P` to filter pinned items.
+- **Screenshot Styling**: Choose stroke widths from the toolbar or right-click a tool or drawn annotation. Custom colors use a permanent rainbow-plus button; width edits support Undo/Redo.
 - **Window Positioning**: Draggable floating panel that remembers its position across invocations.
 - **Native Design**: Built with AppKit and modern macOS materials (Liquid Glass on macOS 26, standard system blur with Reduce Transparency fallback), respecting system Dark/Light themes.
 - **Zero Bloat**: No Electron, no web runtime, zero external dependencies, minimal memory footprint.
@@ -101,11 +102,13 @@ The project includes an isolated test suite and headless UI preview renderer:
 # Run 22 unit and integration tests (uses isolated temporary pasteboards)
 bash scripts/check.sh
 
-# Render and verify 33 native visual scenarios, pin alignment and 120 resize updates
+# Render and verify 42 native visual scenarios, pin alignment and 120 resize updates
 bash scripts/check-ui.sh
 ```
 
 The latest interface diagnosis, visual constraints, verification limits, and filled implementation QA checklist are in [the Lucide and resize review](docs/UI-UX-LUCIDE-REVIEW.md).
+
+Screenshot editor behavior and the filled QA checklist: [stroke widths and custom color](docs/UI-UX-EDITOR-REVIEW.md).
 
 ## Contributing
 

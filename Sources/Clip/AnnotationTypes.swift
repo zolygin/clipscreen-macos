@@ -29,6 +29,10 @@ enum AnnotationTool: Int, CaseIterable {
         case .highlighter: return "Highlighter"
         }
     }
+
+    var usesLineWidth: Bool { self != .filledRect }
+    var defaultLineWidth: CGFloat { self == .highlighter ? 20 : 3.5 }
+    var lineWidths: [CGFloat] { self == .highlighter ? [8, 12, 20, 28, 40] : [1, 2, 3.5, 6, 10, 16] }
 }
 
 struct AnnotationItem {
@@ -37,10 +41,40 @@ struct AnnotationItem {
     var endPoint: CGPoint
     var points: [CGPoint]
     let color: NSColor
-    let lineWidth: CGFloat
+    var lineWidth: CGFloat
 }
 
 enum AnnotationRenderer {
+    static func contains(_ point: CGPoint, in item: AnnotationItem, tolerance: CGFloat) -> Bool {
+        let path = CGMutablePath()
+        if item.tool == .rect || item.tool == .filledRect {
+            let rect = CGRect(x: min(item.startPoint.x, item.endPoint.x), y: min(item.startPoint.y, item.endPoint.y),
+                              width: max(1, abs(item.endPoint.x - item.startPoint.x)),
+                              height: max(1, abs(item.endPoint.y - item.startPoint.y)))
+            path.addRoundedRect(in: rect, cornerWidth: 3, cornerHeight: 3)
+            if item.tool == .filledRect { return path.contains(point) }
+        } else {
+            let points = (item.tool == .pen || item.tool == .highlighter) && item.points.count > 1
+                ? item.points : [item.startPoint, item.endPoint]
+            path.addLines(between: points)
+            if item.tool == .arrow {
+                let angle = atan2(item.endPoint.y - item.startPoint.y, item.endPoint.x - item.startPoint.x)
+                let length = max(14, item.lineWidth * 4)
+                let head = CGMutablePath()
+                head.move(to: item.endPoint)
+                for direction: CGFloat in [-1, 1] {
+                    head.addLine(to: CGPoint(x: item.endPoint.x - length * cos(angle + direction * .pi / 6),
+                                            y: item.endPoint.y - length * sin(angle + direction * .pi / 6)))
+                }
+                head.closeSubpath()
+                if head.contains(point) { return true }
+                path.addPath(head)
+            }
+        }
+        return path.copy(strokingWithWidth: item.lineWidth + tolerance * 2, lineCap: .round, lineJoin: .round, miterLimit: 10)
+            .contains(point)
+    }
+
     static func snapPoint(from start: CGPoint, to current: CGPoint) -> CGPoint {
         let dx = current.x - start.x
         let dy = current.y - start.y
@@ -112,7 +146,7 @@ enum AnnotationRenderer {
 
         case .highlighter:
             context.setStrokeColor(color.withAlphaComponent(0.38).cgColor)
-            context.setLineWidth(max(20, item.lineWidth * 5.5))
+            context.setLineWidth(item.lineWidth)
             context.setLineCap(.round)
             context.setLineJoin(.round)
             context.setBlendMode(.multiply)

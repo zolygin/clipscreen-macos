@@ -15,6 +15,12 @@ xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" \
     "$PROJECT_DIR/Sources/Clip/StatusIcon.swift" \
     "$PROJECT_DIR/Sources/Clip/AnnotationTypes.swift" \
     "$PROJECT_DIR/Sources/Clip/ColorCircleButton.swift" \
+    "$PROJECT_DIR/Sources/Clip/CustomColorButton.swift" \
+    "$PROJECT_DIR/Sources/Clip/StrokeWidthMenu.swift" \
+    "$PROJECT_DIR/Sources/Clip/AnnotationCanvasView.swift" \
+    "$PROJECT_DIR/Sources/Clip/ScreenshotEditor.swift" \
+    "$PROJECT_DIR/Sources/Clip/ScreenshotEditorWindow.swift" \
     "$PROJECT_DIR/Sources/Clip/ScreenshotEditorToolbar.swift" \
+    "$PROJECT_DIR/Tests/AnnotationChecks.swift" \
     "$PROJECT_DIR/Tests/PanelPreview.swift" -o "$CHECK_DIR/PanelPreview"
 "$CHECK_DIR/PanelPreview" "$PROJECT_DIR/.build/previews"

@@ -3,10 +3,14 @@ import AppKit
 final class ColorCircleButton: NSButton {
     let color: NSColor
     var isSelected: Bool = false {
-        didSet { needsDisplay = true }
+        didSet {
+            state = isSelected ? .on : .off
+            setAccessibilityValue(isSelected ? "Selected" : "Not selected")
+            needsDisplay = true
+        }
     }
 
-    init(color: NSColor, target: AnyObject?, action: Selector) {
+    init(color: NSColor, label: String, target: AnyObject?, action: Selector) {
         self.color = color
         super.init(frame: .zero)
         self.target = target
@@ -14,6 +18,8 @@ final class ColorCircleButton: NSButton {
         isBordered = false
         bezelStyle = .inline
         title = ""
+        toolTip = label
+        setAccessibilityLabel(label)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
