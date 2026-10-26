@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage
 
 enum AnnotationTool: Int, CaseIterable {
     case pen
@@ -36,6 +37,12 @@ enum AnnotationTool: Int, CaseIterable {
     var usesLineWidth: Bool { self != .filledRect && self != .text }
     var defaultLineWidth: CGFloat { self == .highlighter ? 20 : 3.5 }
     var lineWidths: [CGFloat] { self == .highlighter ? [8, 12, 20, 28, 40] : [1, 2, 3.5, 6, 10, 16] }
+}
+
+enum RectangleFillMode: Int, CaseIterable {
+    case solid, blur
+    var title: String { self == .solid ? "Solid Fill" : "Blur Area" }
+    var icon: LucideIcon { self == .solid ? .squareFilled : .squareDashed }
 }
 
 enum AnnotationFont: Int, CaseIterable {
@@ -87,7 +94,7 @@ struct AnnotationTextStyle: Equatable {
     var size: CGFloat = 24
 }
 
-struct AnnotationItem {
+struct AnnotationItem: Equatable {
     let tool: AnnotationTool
     var startPoint: CGPoint
     var endPoint: CGPoint
@@ -97,6 +104,7 @@ struct AnnotationItem {
     var text: String = ""
     var textStyle = AnnotationTextStyle()
     var textMaxWidth: CGFloat = 400
+    var fillMode: RectangleFillMode = .solid
 }
 
 enum AnnotationRenderer {
@@ -160,7 +168,8 @@ enum AnnotationRenderer {
         )
     }
 
-    static func render(item: AnnotationItem, in context: CGContext) {
+    static func render(item: AnnotationItem, in context: CGContext,
+                       blurredBackdrop: CGImage? = nil, imageSize: CGSize? = nil) {
         context.saveGState()
         let color = item.color
 
@@ -216,10 +225,17 @@ enum AnnotationRenderer {
                               y: min(item.startPoint.y, item.endPoint.y),
                               width: max(1, abs(item.endPoint.x - item.startPoint.x)),
                               height: max(1, abs(item.endPoint.y - item.startPoint.y)))
-            context.setFillColor(color.cgColor)
             let path = CGPath(roundedRect: rect, cornerWidth: 3, cornerHeight: 3, transform: nil)
             context.addPath(path)
-            context.fillPath()
+            if item.fillMode == .blur, let blurredBackdrop, let imageSize {
+                context.clip()
+                context.draw(blurredBackdrop, in: CGRect(origin: .zero, size: imageSize))
+            } else {
+                // If the filter cannot render, cover the region rather than expose
+                // its original pixels in an apparently blurred export.
+                context.setFillColor((item.fillMode == .blur ? NSColor.black : color).cgColor)
+                context.fillPath()
+            }
 
         case .highlighter:
             context.setStrokeColor(color.withAlphaComponent(0.38).cgColor)
@@ -278,5 +294,74 @@ enum AnnotationRenderer {
         context.addLine(to: p3)
         context.closePath()
         context.fillPath()
+    }
+}
+
+/// Full-resolution composition in annotation order. The cached blur backdrop is
+/// prepared once while dragging an area, so the live preview only clips a texture.
+final class AnnotationImageRenderer {
+    private static let filters = CIContext(options: [.cacheIntermediates: false])
+    private let baseImage: NSImage
+    private var cachedItems: [AnnotationItem]?
+    private var cachedImage: NSImage?
+    private var blurPrefix: [AnnotationItem]?
+    private var blurImage: CGImage?
+
+    init(baseImage: NSImage) { self.baseImage = baseImage }
+
+    func invalidate() {
+        cachedItems = nil
+        cachedImage = nil
+        blurPrefix = nil
+        blurImage = nil
+    }
+
+    func blurredBackdrop(for items: [AnnotationItem]) -> CGImage? {
+        if blurPrefix == items { return blurImage }
+        let image = render(items)
+        return blur(image.cgImage(forProposedRect: nil, context: nil, hints: nil), after: items)
+    }
+
+    private func blur(_ source: CGImage?, after prefix: [AnnotationItem]) -> CGImage? {
+        if blurPrefix == prefix { return blurImage }
+        guard let source else { return nil }
+        let image = CIImage(cgImage: source)
+        let scale = CGFloat(source.width) / max(1, baseImage.size.width)
+        let filtered = image.clampedToExtent().applyingFilter("CIGaussianBlur", parameters: [
+            kCIInputRadiusKey: 24 * scale
+        ]).cropped(to: image.extent)
+        let output = Self.filters.createCGImage(filtered, from: image.extent)
+        blurPrefix = prefix
+        blurImage = output
+        return output
+    }
+
+    func render(_ items: [AnnotationItem]) -> NSImage {
+        if cachedItems == items, let cachedImage { return cachedImage }
+        let source = baseImage.representations.first { $0.pixelsWide > 0 && $0.pixelsHigh > 0 }
+        let width = source?.pixelsWide ?? max(1, Int(baseImage.size.width))
+        let height = source?.pixelsHigh ?? max(1, Int(baseImage.size.height))
+        let storage = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let bitmap = storage.retagging(with: NSColorSpace.sRGB) ?? storage
+        bitmap.size = baseImage.size
+        NSGraphicsContext.saveGraphicsState()
+        let graphics = NSGraphicsContext(bitmapImageRep: bitmap)!
+        NSGraphicsContext.current = graphics
+        let context = graphics.cgContext
+        context.clear(CGRect(origin: .zero, size: baseImage.size))
+        baseImage.draw(in: CGRect(origin: .zero, size: baseImage.size))
+        for (index, item) in items.enumerated() {
+            let backdrop = item.tool == .filledRect && item.fillMode == .blur
+                ? blur(context.makeImage(), after: Array(items.prefix(index))) : nil
+            AnnotationRenderer.render(item: item, in: context, blurredBackdrop: backdrop, imageSize: baseImage.size)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        let image = NSImage(size: baseImage.size)
+        image.addRepresentation(bitmap)
+        cachedItems = items
+        cachedImage = image
+        return image
     }
 }

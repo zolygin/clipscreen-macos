@@ -46,3 +46,28 @@ final class StrokeWidthMenu: NSMenu {
         onSelect(CGFloat(number.doubleValue))
     }
 }
+
+/// The rectangle keeps one toolbar slot; its context menu selects its operation.
+final class RectangleFillMenu: NSMenu {
+    private let onSelect: (RectangleFillMode) -> Void
+
+    init(mode: RectangleFillMode, onSelect: @escaping (RectangleFillMode) -> Void) {
+        self.onSelect = onSelect
+        super.init(title: "Rectangle mode")
+        for option in RectangleFillMode.allCases {
+            let item = NSMenuItem(title: option.title, action: #selector(chooseMode(_:)), keyEquivalent: "")
+            item.image = option.icon.image()
+            item.target = self
+            item.tag = option.rawValue
+            item.state = option == mode ? .on : .off
+            addItem(item)
+        }
+    }
+
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func chooseMode(_ sender: NSMenuItem) {
+        guard let mode = RectangleFillMode(rawValue: sender.tag) else { return }
+        onSelect(mode)
+    }
+}

@@ -20,6 +20,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     var onSelectTool: ((AnnotationTool) -> Void)?
     var onSelectColor: ((NSColor) -> Void)?
     var onSelectTextStyle: ((AnnotationTextStyle) -> Void)?
+    var onSelectFillMode: ((RectangleFillMode) -> Void)?
     var onSelectLineWidth: ((CGFloat) -> Void)?
     var onPreferredHeightChange: ((CGFloat) -> Void)?
     var onUndo: (() -> Void)?
@@ -45,6 +46,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     private let fontPicker = NSPopUpButton()
     private let fontSizePicker = NSPopUpButton()
     private(set) var textStyle = AnnotationTextStyle()
+    private(set) var fillMode: RectangleFillMode = .solid
     private let colorDivider = NSBox()
     private var isCompact = true
     private(set) var preferredHeight: CGFloat = 80
@@ -240,7 +242,17 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         onSelectLineWidth?(width)
     }
 
+    func selectFillMode(_ mode: RectangleFillMode) {
+        fillMode = mode
+        onSelectTool?(.filledRect)
+        onSelectFillMode?(mode)
+        updateToolSelection(activeTool: .filledRect)
+    }
+
     func makeWidthMenu(for tool: AnnotationTool) -> NSMenu {
+        if tool == .filledRect {
+            return RectangleFillMenu(mode: fillMode) { [weak self] in self?.selectFillMode($0) }
+        }
         return StrokeWidthMenu(tool: tool, width: lineWidth(for: tool)) { [weak self] in self?.selectLineWidth($0, for: tool) }
     }
 
@@ -252,6 +264,14 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         needsLayout = true
         for (tool, button) in toolButtons {
             button.setActive(tool == activeTool)
+            if tool == .filledRect {
+                button.image = fillMode.icon.image()
+                button.setAccessibilityLabel(fillMode.title)
+                button.setAccessibilityValue("\(tool == activeTool ? "Selected" : "Not selected"), \(fillMode.title)")
+                button.toolTip = "\(fillMode.title) · Right-click for Fill or Blur"
+                button.setAccessibilityHelp("Right-click or press Shift-F10 to choose Solid Fill or Blur Area")
+                continue
+            }
             let selected = tool == activeTool ? "Selected" : "Not selected"
             let width = tool.usesLineWidth ? StrokeWidthMenu.label(lineWidth(for: tool)) : "Solid fill"
             button.setAccessibilityValue("\(selected), \(width)")

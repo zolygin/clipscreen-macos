@@ -86,6 +86,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             self.toolbar.updateToolSelection(activeTool: tool)
             if tool == .text { self.window?.makeFirstResponder(self.canvas.textEditor ?? self.canvas as NSResponder) }
         }
+        toolbar.onSelectFillMode = { [weak self] mode in self?.canvas.activeFillMode = mode }
         toolbar.onSelectLineWidth = { [weak self] width in self?.canvas.activeLineWidth = width }
         toolbar.onSelectColor = { [weak self] color in
             guard let self else { return }

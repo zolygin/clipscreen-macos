@@ -7,6 +7,7 @@ The paths, 24 × 24 view box, 2-unit stroke, round caps and joins are unchanged.
 `square-filled.svg` is a local filled variant of the official `square.svg`:
 the geometry is identical; only `fill` changes from `none` to `currentColor`.
 It is not an additional upstream Lucide icon name.
+`square-dashed.svg` is the unchanged upstream icon from the same version, used for Blur Area.
 AppKit loads these files as template images and applies the system tint.
 See LICENSE for Lucide's ISC attribution and permission notice.
 

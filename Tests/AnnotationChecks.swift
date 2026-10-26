@@ -29,8 +29,11 @@ enum AnnotationChecks {
                 precondition(selected == tool && width == value && toolbar.lineWidth(for: tool) == value)
                 let updated = toolbar.makeWidthMenu(for: tool)
                 precondition(updated.items.filter { $0.state == .on }.count == 1)
+            } else if tool == .filledRect {
+                precondition(menu.items.map { $0.title } == ["Solid Fill", "Blur Area"])
+                precondition(menu.items.first?.state == .on, "Solid Fill must remain the default")
             } else {
-                precondition(menu.items.allSatisfy { $0.action == nil }, "Fill must not advertise a no-op width")
+                precondition(menu.items.allSatisfy { $0.action == nil }, "Text must not advertise a no-op width")
             }
         }
         precondition(toolbar.lineWidth(for: .pen) == 16 && toolbar.lineWidth(for: .highlighter) == 40)
@@ -83,7 +86,8 @@ enum AnnotationChecks {
         precondition(canvas.widthMenu(at: CGPoint(x: 100, y: 100)) == nil)
         draw(.filledRect, 3.5, CGPoint(x: 70, y: 60), CGPoint(x: 150, y: 120))
         let fillMenu = canvas.widthMenu(at: CGPoint(x: 100, y: 80))!
-        precondition(fillMenu.items.allSatisfy { $0.action == nil })
+        precondition(fillMenu.items.map { $0.title } == ["Solid Fill", "Blur Area"])
+        precondition(fillMenu.items.first?.state == .on)
         canvas.setLineWidth(16, at: 2)
         precondition(canvas.items[2].lineWidth == 3.5)
         let fillPixel = NSBitmapImageRep(data: canvas.renderAnnotatedImage().tiffRepresentation!)!
@@ -176,6 +180,7 @@ enum AnnotationChecks {
             }
         }
         count += try checkText(directory: directory)
+        count += try BlurChecks.run(directory: directory)
         return count
     }
 

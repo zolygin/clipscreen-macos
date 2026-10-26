@@ -21,6 +21,7 @@ xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditor.swift" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorWindow.swift" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorToolbar.swift" \
+    "$PROJECT_DIR/Tests/BlurChecks.swift" \
     "$PROJECT_DIR/Tests/AnnotationChecks.swift" \
     "$PROJECT_DIR/Tests/PanelPreview.swift" -o "$CHECK_DIR/PanelPreview"
 "$CHECK_DIR/PanelPreview" "$PROJECT_DIR/.build/previews"

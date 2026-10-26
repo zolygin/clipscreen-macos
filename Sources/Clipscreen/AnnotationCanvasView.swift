@@ -35,6 +35,8 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
     private var undoSnapshots: [[AnnotationItem]] = []
     private var redoSnapshots: [[AnnotationItem]] = []
     private var currentItem: AnnotationItem?
+    private lazy var imageRenderer = AnnotationImageRenderer(baseImage: baseImage)
+    var activeFillMode: RectangleFillMode = .solid
     private(set) var textEditor: AnnotationTextView?
     private var textScroll: NSScrollView?
     private var textDraft: AnnotationItem?
@@ -124,6 +126,9 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             AnnotationRenderer.contains(point, in: items[$0], tolerance: tolerance)
         }) else { return nil }
         let item = items[index]
+        if item.tool == .filledRect {
+            return RectangleFillMenu(mode: item.fillMode) { [weak self] in self?.setFillMode($0, at: index) }
+        }
         if item.tool == .text {
             let menu = NSMenu(title: "Text")
             let edit = NSMenuItem(title: "Edit Text…", action: #selector(editSelectedText), keyEquivalent: "")
@@ -135,6 +140,14 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         return StrokeWidthMenu(tool: item.tool, width: item.lineWidth) { [weak self] in
             self?.setLineWidth($0, at: index)
         }
+    }
+
+    func setFillMode(_ mode: RectangleFillMode, at index: Int) {
+        guard items.indices.contains(index), items[index].tool == .filledRect, items[index].fillMode != mode else { return }
+        recordUndo()
+        items[index].fillMode = mode
+        needsDisplay = true
+        onHistoryChange?(canUndo, canRedo)
     }
 
     func setLineWidth(_ width: CGFloat, at index: Int) {
@@ -351,7 +364,8 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         }
         selectedTextIndex = nil
         currentItem = AnnotationItem(tool: activeTool, startPoint: pt, endPoint: pt,
-                                     points: [pt], color: activeColor, lineWidth: activeLineWidth)
+                                     points: [pt], color: activeColor, lineWidth: activeLineWidth,
+                                     fillMode: activeFillMode)
         needsDisplay = true
     }
 
@@ -420,17 +434,26 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        imageRenderer.invalidate()
+        needsDisplay = true
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         let rect = imageRect
         guard rect.width > 0, rect.height > 0,
               let context = NSGraphicsContext.current?.cgContext else { return }
 
+        let visibleItems = items.enumerated().filter { $0.offset != editingTextIndex }.map { $0.element }
+        let hasBlur = visibleItems.contains { $0.tool == .filledRect && $0.fillMode == .blur }
+        let backdrop = hasBlur ? imageRenderer.render(visibleItems) : baseImage
         // Draw shadow under image
         context.saveGState()
         context.setShadow(offset: CGSize(width: 0, height: -3), blur: 12,
                           color: NSColor.black.withAlphaComponent(0.20).cgColor)
-        baseImage.draw(in: rect)
+        backdrop.draw(in: rect)
         context.restoreGState()
 
         // Draw subtle border around image
@@ -446,10 +469,14 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         let scaleY = rect.height / max(1, baseImage.size.height)
         context.scaleBy(x: scaleX, y: scaleY)
 
-        let all = items + [currentItem].compactMap { $0 }
         context.clip(to: CGRect(origin: .zero, size: baseImage.size))
-        for (index, item) in all.enumerated() where index != editingTextIndex {
-            AnnotationRenderer.render(item: item, in: context)
+        if !hasBlur {
+            for item in visibleItems { AnnotationRenderer.render(item: item, in: context) }
+        }
+        if let currentItem {
+            let blurred = currentItem.tool == .filledRect && currentItem.fillMode == .blur
+                ? imageRenderer.blurredBackdrop(for: visibleItems) : nil
+            AnnotationRenderer.render(item: currentItem, in: context, blurredBackdrop: blurred, imageSize: baseImage.size)
         }
         if let index = selectedTextIndex, textDraft == nil {
             context.setStrokeColor(NSColor.controlAccentColor.cgColor)
@@ -462,41 +489,6 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
 
     func renderAnnotatedImage() -> NSImage {
         finishTextEditing()
-        var pixelSize = baseImage.size
-        for rep in baseImage.representations {
-            if rep.pixelsWide > 0 && rep.pixelsHigh > 0 {
-                pixelSize = NSSize(width: rep.pixelsWide, height: rep.pixelsHigh)
-                break
-            }
-        }
-
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
-                                   pixelsWide: Int(pixelSize.width),
-                                   pixelsHigh: Int(pixelSize.height),
-                                   bitsPerSample: 8,
-                                   samplesPerPixel: 4,
-                                   hasAlpha: true,
-                                   isPlanar: false,
-                                   colorSpaceName: .deviceRGB,
-                                   bytesPerRow: 0,
-                                   bitsPerPixel: 0)!
-        rep.size = baseImage.size
-
-        NSGraphicsContext.saveGraphicsState()
-        let ctx = NSGraphicsContext(bitmapImageRep: rep)!
-        NSGraphicsContext.current = ctx
-        let cg = ctx.cgContext
-
-        baseImage.draw(in: NSRect(origin: .zero, size: baseImage.size))
-
-        for item in items {
-            AnnotationRenderer.render(item: item, in: cg)
-        }
-
-        NSGraphicsContext.restoreGraphicsState()
-
-        let result = NSImage(size: baseImage.size)
-        result.addRepresentation(rep)
-        return result
+        return imageRenderer.render(items)
     }
 }
