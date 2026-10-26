@@ -101,7 +101,7 @@ export function preflight(root, env, run, platform = process.platform) {
   const sources = fs.readdirSync(path.join(root, 'Sources', 'Clipscreen')).filter(file => file.endsWith('.swift')).sort()
     .map(file => path.join(root, 'Sources', 'Clipscreen', file));
   if (!sources.length) throw new Error('No application Swift sources found.');
-  for (const required of ['LICENSE', 'Resources/Lucide/LICENSE', 'Resources/Lucide/clipboard.svg']) {
+  for (const required of ['LICENSE', 'Resources/Lucide/LICENSE', 'Resources/Lucide/clipboard.svg', 'Resources/Clipscreen.icns']) {
     if (!fs.existsSync(path.join(root, required))) throw new Error(`Missing distribution resource: ${required}`);
   }
   const revisionResult = run('/usr/bin/git', ['rev-parse', '--short=12', 'HEAD'], { cwd: root, allowFailure: true });
@@ -176,6 +176,7 @@ export function distribute({ root = PROJECT, suppliedEnv = process.env, run: inj
     fs.copyFileSync(path.join(root, 'Resources', 'Info.plist'), info);
     run('/usr/bin/ditto', [path.join(root, 'Resources', 'Lucide'), path.join(resources, 'Lucide')]);
     fs.copyFileSync(path.join(root, 'LICENSE'), path.join(resources, 'LICENSE'));
+    fs.copyFileSync(path.join(root, 'Resources/Clipscreen.icns'), path.join(resources, 'Clipscreen.icns'));
     run('/usr/bin/plutil', ['-replace', 'CFBundleIdentifier', '-string', config.bundle, info]);
     for (const [key, value] of Object.entries({ ClipscreenSourceRevision: config.revision,
       ClipscreenBuildDate: new Date().toISOString(), ClipscreenBuildConfiguration: 'Release',

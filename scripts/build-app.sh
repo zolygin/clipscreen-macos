@@ -10,6 +10,7 @@ fi
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$PROJECT_DIR/.build/module-cache"
 cp "$PROJECT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp -R "$PROJECT_DIR/Resources/Lucide" "$APP_DIR/Contents/Resources/"
+cp "$PROJECT_DIR/Resources/Clipscreen.icns" "$APP_DIR/Contents/Resources/Clipscreen.icns"
 cp "$PROJECT_DIR/LICENSE" "$APP_DIR/Contents/Resources/LICENSE"
 SOURCE_REVISION="$(git -C "$PROJECT_DIR" rev-parse --short=12 HEAD 2>/dev/null || printf 'source-archive')"
 if [[ "$SOURCE_REVISION" != source-archive ]] && ! git -C "$PROJECT_DIR" diff --quiet HEAD -- Sources Resources scripts; then

@@ -17,6 +17,7 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const files = {
     'Resources/Info.plist': '<plist><dict><key>CFBundleIdentifier</key><string>local.kirill.clip</string></dict></plist>',
+    'Resources/Clipscreen.icns': 'fixture icon',
     'Resources/Lucide/LICENSE': 'fixture Lucide license', 'Resources/Lucide/clipboard.svg': '<svg/>',
     'LICENSE': 'fixture MIT license', 'Sources/Clipscreen/App.swift': '// Never compiled: commands are intercepted.\n',
     '.env.release.local': `APPLE_ID=developer@example.invalid\nAPPLE_TEAM_ID=${TEAM}\nAPPLE_APP_SPECIFIC_PASSWORD=${PASSWORD}\n`,
@@ -71,6 +72,7 @@ function host(options = {}) {
         assert.equal(fs.readlinkSync(path.join(layout, 'Applications')), '/Applications');
         assert.ok(fs.existsSync(path.join(layout, 'Clipscreen.app/Contents/Resources/Lucide/LICENSE')));
         assert.ok(fs.existsSync(path.join(layout, 'Clipscreen.app/Contents/Resources/LICENSE')));
+        assert.equal(fs.readFileSync(path.join(layout, 'Clipscreen.app/Contents/Resources/Clipscreen.icns'), 'utf8'), 'fixture icon');
         fs.writeFileSync(args.at(-1), 'FAKE disk image fixture');
       }
       return ok();
