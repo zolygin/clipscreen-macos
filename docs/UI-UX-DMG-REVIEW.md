@@ -30,3 +30,12 @@ Files: `scripts/dmg.mjs`, `scripts/dmg-layout.applescript`, `scripts/render-dmg.
 ## Assumptions and limits
 
 Finder backgrounds are static. Native drag/copy feedback supplies motion. Finder window chrome/labels can vary across macOS versions. On first build, Terminal → Finder automation may require permission; end users installing the DMG do not need it. The user selected the graphite tile with two overlapping cards and a blue clipboard tab. `Resources/AppIcon.png` has transparent exterior corners; `Resources/Clipscreen.icns` is wired into development/release resources and the volume icon. Native status-bar Lucide artwork remains separate.
+
+
+## Finder alias regression
+
+A maintainer build reported error -1728: a filesystem alias cannot supply Finder's `container window` property. The production script now creates a specific Finder window, sets its target from the private mount alias, and obtains the Finder container through that window. It closes its own window on success and error. No front-window or volume-name lookup is used.
+
+The packaging error now adds an Automation hint only for actual Apple-event permission denial (-1743). Mocked regressions distinguish object lookup, unrelated layout failures and permission denial. AppleScript compilation is a syntax check, not proof of runtime behavior.
+
+`npm run check:dmg-layout` is an explicit integration check for a maintainer terminal. It exercises the real script on a disposable HFS+ fixture twice and checks DS_Store/owned-window cleanup. This native check has not yet been executed for the fix. No production rebuild or notarization was performed for this fix.

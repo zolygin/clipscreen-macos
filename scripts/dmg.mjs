@@ -26,7 +26,9 @@ export function createInstallationDMG({ root, work, app, filename, run }) {
     run('/usr/bin/xcrun', ['SetFile', '-a', 'C', mount]);
     run('/usr/sbin/bless', ['--folder', mount, '--openfolder', mount]);
   } catch (error) {
-    failure = new Error(`Cannot configure the DMG window: ${error.message}\nIf automation was denied, allow your terminal to control Finder in System Settings > Privacy & Security > Automation, then retry.`);
+    const denied = /\(-1743\)|not (?:authorized|permitted) to send apple events/i.test(error.message);
+    const hint = denied ? '\nAllow your terminal to control Finder in System Settings > Privacy & Security > Automation, then retry.' : '';
+    failure = new Error(`Cannot configure the DMG window: ${error.message}${hint}`);
   } finally {
     try { run('/usr/bin/hdiutil', ['detach', mount]); }
     catch (error) {

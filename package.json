@@ -7,6 +7,7 @@
   "scripts": {
     "dist": "node scripts/dist.mjs",
     "dist:check": "node scripts/dist.mjs --check",
-    "check:dist": "node --test Tests/DistTests.mjs"
+    "check:dist": "node --test Tests/DistTests.mjs",
+    "check:dmg-layout": "node Tests/DMGLayoutCheck.mjs"
   }
 }

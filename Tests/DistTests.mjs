@@ -90,7 +90,7 @@ function host(options = {}) {
       return ok();
     }
     if (binary === 'osascript') {
-      if (options.layoutError) throw new Error('Finder automation denied');
+      if (options.layoutError) throw new Error(typeof options.layoutError === 'string' ? options.layoutError : 'Finder automation denied');
       const mount = args[1];
       assert.ok(fs.existsSync(path.join(mount, '.background/background.tiff')));
       assert.equal(fs.readlinkSync(path.join(mount, 'Applications')), '/Applications');
@@ -300,5 +300,23 @@ for (const options of [{ layoutError: true }, { missingLayout: true }, { forceDe
     assert.ok(!mocked.calls.some(c => c.args[0] === 'convert' || c.args[0] === 'notarytool'));
     assert.equal(fs.existsSync(path.join(root, 'release')), false);
     assert.equal(fs.existsSync(path.join(root, '.build/dist.lock')), false);
+  });
+}
+
+
+for (const [label, message, expectedHint] of [
+  ['Finder object lookup error', 'Can’t get container window of alias "Clipscreen:". (-1728)', false],
+  ['Apple-event permission denied', 'Not authorized to send Apple events to Finder. (-1743)', true],
+  ['Unrelated layout error', 'Cannot save icon positions. (-10000)', false],
+]) {
+  test(`${label} preserves the actual error and shows an Automation hint only for permission failures`, t => {
+    const root = fixture(t); const mocked = host({ layoutError: message });
+    assert.throws(() => invoke(root, mocked), error => {
+      assert.ok(error.message.includes(message));
+      assert.equal(error.message.includes('Privacy & Security > Automation'), expectedHint);
+      return true;
+    });
+    assert.ok(mocked.calls.some(c => c.args[0] === 'detach'));
+    assert.ok(!mocked.calls.some(c => c.args[0] === 'notarytool'));
   });
 }
