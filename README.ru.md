@@ -85,7 +85,7 @@ Clipscreen собирается локально за считанные сек�
 
 ```bash
 # 1. Клонируйте репозиторий
-git clone https://github.com/kirillzolygin/clipscreen-macos.git
+git clone https://github.com/zolygin/clipscreen-macos.git
 cd clipscreen-macos
 
 # 2. Соберите приложение
@@ -97,7 +97,16 @@ open .build/Clipscreen.app
 
 > **Совет:** Для постоянного использования переместите `Clipscreen.app` в папку `/Applications` перед выдачей системных разрешений и настройкой автозапуска.
 
-`Clipscreen.app` — само приложение: после установки его можно запускать через Finder без Терминала. DMG — упаковка для распространения этого приложения. Подробнее о локальной установке, тестовом DMG и подготовке подписанного публичного релиза: [Building and distributing Clipscreen](docs/DISTRIBUTION.md).
+`Clipscreen.app` — само приложение: после установки его можно запускать через Finder без Терминала. DMG — упаковка для распространения этого приложения. Подробнее о локальной установке и однокомандной сборке подписанного DMG: [Building and distributing Clipscreen](docs/DISTRIBUTION.md).
+
+### Подписанный DMG для распространения
+
+```bash
+npm run dist:check  # Только локальная проверка готовности
+npm run dist        # Сборка, подпись, DMG, нотарификация Apple и проверки
+```
+
+Готовый Universal 2 установщик для Apple Silicon и Intel: `release/Clipscreen-0.5.0-universal.dmg`. Рядом сохраняются контрольная сумма и данные релиза. Нужны Node.js 22+, Developer ID и данные нотарификации; `npm install` не требуется. Команда не публикует файлы на GitHub. Локально можно использовать те же Apple-параметры, что и в Dictāta. [Настройка и подробности](docs/DISTRIBUTION.md).
 
 ### Первый запуск и разрешения
 

@@ -45,3 +45,7 @@ Clipscreen is a lightweight, zero-dependency native clipboard manager for macOS 
 2. Ensure `bash scripts/check.sh` passes with zero errors and all tests pass.
 3. Keep pull requests focused on a single feature or bug fix.
 4. Describe your changes and test scenarios clearly in the PR description.
+
+## Distribution tooling
+
+`npm run dist:check` performs local readiness checks without building or uploading; `npm run check:dist` runs isolated release-wrapper tests with mocked external tools. These optional commands require Node.js 22+ and use built-ins only. `npm run dist` is a full optimized, signed/notarized distribution build and uploads the DMG to Apple. Follow the repository build-authorization policy before running it. Setup and verification limits are in [DISTRIBUTION.md](docs/DISTRIBUTION.md).

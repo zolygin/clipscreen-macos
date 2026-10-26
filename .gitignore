@@ -25,3 +25,16 @@ xcuserdata/
 .vscode/
 *.swp
 *~
+
+# Distribution artifacts and local signing configuration
+release/
+node_modules/
+.env
+.env.*
+!.env.release.example
+.release.local.json
+*.p12
+*.pfx
+*.p8
+*.key
+*.mobileprovision

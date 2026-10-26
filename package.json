@@ -1,0 +1,12 @@
+{
+  "name": "clipscreen-macos",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dist": "node scripts/dist.mjs",
+    "dist:check": "node scripts/dist.mjs --check",
+    "check:dist": "node --test Tests/DistTests.mjs"
+  }
+}

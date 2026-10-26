@@ -78,7 +78,7 @@ Clipscreen can be built locally in seconds without any package manager:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kirillzolygin/clipscreen-macos.git
+git clone https://github.com/zolygin/clipscreen-macos.git
 cd clipscreen-macos
 
 # 2. Build the app bundle
@@ -90,7 +90,18 @@ open .build/Clipscreen.app
 
 > **Tip:** For daily use, move `Clipscreen.app` to `/Applications` before enabling login items or granting system permissions.
 
-`Clipscreen.app` is the application itself; Terminal is not needed to launch it after installation. A DMG is a distribution container around that app. See [Building and distributing Clipscreen](docs/DISTRIBUTION.md) for local installation, a preview DMG, and the planned signed/notarized release workflow.
+`Clipscreen.app` is the application itself; Terminal is not needed to launch it after installation. A DMG is a distribution container around that app. See [Building and distributing Clipscreen](docs/DISTRIBUTION.md) for local installation and the one-command signed/notarized release workflow.
+
+### Signed distribution build
+
+To produce a Universal 2 DMG for Apple Silicon and Intel, with Developer ID signing and Apple notarization:
+
+```bash
+npm run dist:check  # Local prerequisites only; no build/upload
+npm run dist        # Compile, sign, package, notarize and verify
+```
+
+The output is `release/Clipscreen-0.5.0-universal.dmg`, with a checksum and release manifest. This wrapper requires Node.js 22+ and configured Apple signing/notarization credentials; no `npm install` is needed. It does not publish to GitHub. See [distribution setup](docs/DISTRIBUTION.md). Source/development builds above do not require a paid Developer ID identity.
 
 ### First Launch & Permissions
 
