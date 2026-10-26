@@ -24,7 +24,6 @@ export function createInstallationDMG({ root, work, app, filename, run }) {
       throw new Error('Finder did not save the installer layout (.DS_Store is missing).');
     }
     run('/usr/bin/xcrun', ['SetFile', '-a', 'C', mount]);
-    run('/usr/sbin/bless', ['--folder', mount, '--openfolder', mount]);
   } catch (error) {
     const denied = /\(-1743\)|not (?:authorized|permitted) to send apple events/i.test(error.message);
     const hint = denied ? '\nAllow your terminal to control Finder in System Settings > Privacy & Security > Automation, then retry.' : '';

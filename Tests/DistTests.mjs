@@ -97,7 +97,6 @@ function host(options = {}) {
       if (!options.missingLayout) fs.writeFileSync(path.join(mount, '.DS_Store'), 'FAKE Finder metadata');
       return ok();
     }
-    if (binary === 'bless') return ok();
     if (binary === 'codesign') return ok();
     if (binary === 'spctl') { if (options.gatekeeperError) throw new Error('Gatekeeper rejected the disk image'); return ok(); }
     throw new Error(`Unexpected external command: ${binary}`);
@@ -281,8 +280,10 @@ test('Installer layout is saved and unmounted before compression, signing and up
   const step = (binary, arg) => mocked.calls.findIndex(c => path.basename(c.command) === binary && (!arg || c.args[0] === arg));
   assert.ok(step('hdiutil', 'create') < step('hdiutil', 'attach'));
   assert.ok(step('hdiutil', 'attach') < step('osascript'));
-  assert.ok(step('osascript') < step('bless'));
-  assert.ok(step('bless') < step('hdiutil', 'detach'));
+  const volumeIcon = mocked.calls.findIndex(c => path.basename(c.command) === 'xcrun' && c.args[0] === 'SetFile');
+  assert.ok(step('osascript') < volumeIcon);
+  assert.ok(volumeIcon < step('hdiutil', 'detach'));
+  assert.ok(mocked.calls.every(c => path.basename(c.command) !== 'bless'));
   assert.ok(step('hdiutil', 'detach') < step('hdiutil', 'convert'));
   const force = mocked.calls.findIndex(c => c.args[0] === 'detach' && c.args.includes('-force'));
   assert.ok(force > step('hdiutil', 'detach') && force < step('hdiutil', 'convert'));

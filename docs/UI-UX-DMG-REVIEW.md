@@ -24,8 +24,9 @@ Files: `scripts/dmg.mjs`, `scripts/dmg-layout.applescript`, `scripts/render-dmg.
 - [x] Layout: fixed desktop DMG view, generous gaps and Retina representation. Production app icon is not baked into the background; a future icon needs no layout change.
 - [x] Recovery: private unique mount path, close before detach, forced-detach fallback for this private volume, no conversion/signing/upload if layout or detach fails. Existing outputs remain intact.
 - [x] Visual fidelity: offscreen 1× and 2× artwork inspected; composition preview rendered with native icons. The initial 2× preview exposed a double scale transform; moving the logical bitmap size assignment after drawing fixed it. The generator now checks the arrow pixel position/color at both scales. Aligned icons, arrow and readable instruction follow references 01–07 of ui-ux-product-design.
-- [x] Verification: Node syntax checks, isolated mocked distribution/failure tests, Swift artwork execution and AppleScript compilation. No full application/release build or Finder automation executed for verification.
-- [ ] Live Finder opening, VoiceOver, keyboard copy and real signed DMG install: require a maintainer run of `npm run dist` and manual check. Not claimed as tested.
+- [x] Verification: Node syntax checks, isolated mocked distribution/failure tests, Swift artwork execution and AppleScript compilation. The initial check was offscreen; after explicit maintainer authorization, native Finder/temporary-volume integration checks were also run. No full application/release build was executed for verification.
+- [x] Native Finder script ran twice on a disposable volume, saving both item records and closing only owned windows.
+- [ ] VoiceOver, keyboard copy and real signed DMG install: require a maintainer run of `npm run dist` and manual check. Not claimed as tested.
 
 ## Assumptions and limits
 
@@ -38,4 +39,7 @@ A maintainer build reported error -1728: a filesystem alias cannot supply Finder
 
 The packaging error now adds an Automation hint only for actual Apple-event permission denial (-1743). Mocked regressions distinguish object lookup, unrelated layout failures and permission denial. AppleScript compilation is a syntax check, not proof of runtime behavior.
 
-`npm run check:dmg-layout` is an explicit integration check for a maintainer terminal. It exercises the real script on a disposable HFS+ fixture twice and checks DS_Store/owned-window cleanup. This native check has not yet been executed for the fix. No production rebuild or notarization was performed for this fix.
+`npm run check:dmg-layout` is an explicit integration check for a maintainer terminal. It exercises the real script on a disposable HFS+ fixture twice and checks DS_Store/owned-window cleanup. After explicit maintainer authorization, the production Finder script passed twice on an actual temporary HFS+ volume. This also exposed and fixed a second runtime reference: icon view options must explicitly belong to the created window. No production rebuild or notarization was performed for this fix.
+
+
+The native packaging check subsequently exposed that `bless --openfolder` is unsupported on Apple Silicon. That legacy command was removed. The actual `createInstallationDMG` function then passed twice with non-executable fixture apps: Finder metadata and both item records, owned-window cleanup, volume-icon flag, unmount, UDZO conversion and `hdiutil verify`. Temporary fixtures were removed. All 19 isolated distribution tests also passed; the test runner rejects reintroduction of `bless`.

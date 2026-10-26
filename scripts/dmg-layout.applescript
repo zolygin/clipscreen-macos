@@ -16,7 +16,7 @@ on run argv
                 set statusbar visible to false
                 set bounds to {200, 160, 840, 588}
                 set sidebar width to 0
-                set viewOptions to icon view options
+                set viewOptions to icon view options of installerWindow
                 set arrangement of viewOptions to not arranged
                 set icon size of viewOptions to 112
                 set text size of viewOptions to 14

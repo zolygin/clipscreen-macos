@@ -43,7 +43,7 @@ The DMG opens in Finder with Clipscreen on the left, the Applications shortcut o
 
 During `npm run dist`, Finder briefly opens the private staging volume to save its icon positions, background and window settings. On the first run, allow the invoking terminal to control Finder. If denied, enable it in **System Settings → Privacy & Security → Automation** and retry. No such automation permission is required to install or use the distributed app.
 
-Finder layout uses a newly created window and its resolved target container; it never asks a filesystem alias for a `container window`. The script closes only the window it creates, including on error. The Automation hint is emitted only for an Apple-event permission refusal (`-1743`); other Finder errors retain their actual diagnostic.
+Finder layout uses a newly created window and its resolved target container; it never asks a filesystem alias for a `container window`. The script closes only the window it creates, including on error. Packaging does not use the legacy `bless --openfolder` command, which is unsupported on Apple Silicon. The Automation hint is emitted only for an Apple-event permission refusal (`-1743`); other Finder errors retain their actual diagnostic.
 
 To check only this native layout before another release build, run:
 
@@ -51,7 +51,7 @@ To check only this native layout before another release build, run:
 npm run check:dmg-layout
 ```
 
-This explicit integration check creates a small temporary test disk with a non-executable placeholder app, runs the production layout script twice, checks the saved Finder metadata and closure of its own windows, then unmounts/deletes the fixture. It opens Finder windows and may request Terminal → Finder permission. It does not compile/sign/notarize the app, create a release, or run with `check:dist` by default.
+This explicit integration check creates a small temporary test disk with a non-executable placeholder app, runs the actual packaging function twice, checks the saved Finder metadata and closure of its own windows, sets the volume icon, unmounts, converts to UDZO, verifies the test images and deletes the fixture. It opens Finder windows and may request Terminal → Finder permission. It does not compile/sign/notarize the app, create a release, or run with `check:dist` by default.
 
 Layout failure, a missing `.DS_Store` or failure to unmount prevents signing/upload of a new DMG; existing release artifacts remain untouched. The staging volume is unmounted even when Finder configuration fails. Background artwork and regeneration instructions live in `Resources/Installer/README.md`.
 
