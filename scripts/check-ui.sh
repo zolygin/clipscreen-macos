@@ -7,20 +7,20 @@ mkdir -p "$CHECK_DIR" "$PROJECT_DIR/.build/module-cache" "$PROJECT_DIR/.build/pr
 cp -R "$PROJECT_DIR/Resources/Lucide" "$CHECK_DIR/"
 xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" \
     -module-cache-path "$PROJECT_DIR/.build/module-cache" \
-    "$PROJECT_DIR/Sources/Clip/History.swift" \
-    "$PROJECT_DIR/Sources/Clip/PasteController.swift" \
-    "$PROJECT_DIR/Sources/Clip/HistoryPanel.swift" \
-    "$PROJECT_DIR/Sources/Clip/PanelSurface.swift" \
-    "$PROJECT_DIR/Sources/Clip/LucideIcon.swift" \
-    "$PROJECT_DIR/Sources/Clip/StatusIcon.swift" \
-    "$PROJECT_DIR/Sources/Clip/AnnotationTypes.swift" \
-    "$PROJECT_DIR/Sources/Clip/ColorCircleButton.swift" \
-    "$PROJECT_DIR/Sources/Clip/CustomColorButton.swift" \
-    "$PROJECT_DIR/Sources/Clip/StrokeWidthMenu.swift" \
-    "$PROJECT_DIR/Sources/Clip/AnnotationCanvasView.swift" \
-    "$PROJECT_DIR/Sources/Clip/ScreenshotEditor.swift" \
-    "$PROJECT_DIR/Sources/Clip/ScreenshotEditorWindow.swift" \
-    "$PROJECT_DIR/Sources/Clip/ScreenshotEditorToolbar.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/History.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/PasteController.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/HistoryPanel.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/PanelSurface.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/LucideIcon.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/StatusIcon.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/AnnotationTypes.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/ColorCircleButton.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/CustomColorButton.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/StrokeWidthMenu.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/AnnotationCanvasView.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditor.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorWindow.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorToolbar.swift" \
     "$PROJECT_DIR/Tests/AnnotationChecks.swift" \
     "$PROJECT_DIR/Tests/PanelPreview.swift" -o "$CHECK_DIR/PanelPreview"
 "$CHECK_DIR/PanelPreview" "$PROJECT_DIR/.build/previews"

@@ -208,7 +208,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = true
         panel.isMovable = true
-        panel.title = "Clip — Clipboard history"
+        panel.title = "Clipscreen"
         panel.isReleasedWhenClosed = false
         super.init(window: panel)
         panel.delegate = self
@@ -298,7 +298,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         panel.contentView = surface
         let root = surface.body
 
-        let title = NSTextField(labelWithString: "Clipboard")
+        let title = NSTextField(labelWithString: "Clipscreen")
         title.font = ClipStyle.titleFont
 
         favoritesButton.refusesFirstResponder = true

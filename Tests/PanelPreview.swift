@@ -228,6 +228,8 @@ struct PanelPreview {
 
     static func verifyActionAlignment(_ view: NSView) {
         let surface = view as! PanelSurface
+        precondition(surface.body.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue == "Clipscreen" },
+                     "The panel heading must use the single-word product name")
         let headerButtons = surface.body.subviews.compactMap { $0 as? ClipIconButton }
         precondition(headerButtons.count == 2, "Header must only contain capture and pinned filter")
         precondition(!surface.body.subviews.compactMap({ $0 as? NSTextField }).contains { $0.stringValue == "⌥⌘V" },

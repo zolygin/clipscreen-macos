@@ -1,4 +1,4 @@
-# Clip
+# Clipscreen
 
 <p align="center">
   <strong>Lightweight native clipboard manager for macOS with Windows Win+V simplicity.</strong>
@@ -18,14 +18,14 @@
 ---
 
 <p align="center">
-  <img src="docs/screenshots/panel-dark.png" alt="Clip for macOS — Dark Mode" width="380" />
+  <img src="docs/screenshots/panel-dark.png" alt="Clipscreen for macOS — Dark Mode" width="380" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/panel-light.png" alt="Clip for macOS — Light Mode" width="380" />
+  <img src="docs/screenshots/panel-light.png" alt="Clipscreen for macOS — Light Mode" width="380" />
 </p>
 
 ## Overview
 
-**Clip** is a minimal, blazingly fast clipboard manager for macOS built with native Swift and AppKit. It lives unobtrusively in your menu bar without cluttering the Dock, keeping the last 100 clipboard entries readily available at your fingertips.
+**Clipscreen** is a minimal, blazingly fast clipboard manager for macOS built with native Swift and AppKit. It lives unobtrusively in your menu bar without cluttering the Dock, keeping the last 100 clipboard entries readily available at your fingertips.
 
 Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter** to paste directly into your active app.
 
@@ -47,7 +47,7 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 
 | Shortcut | Action |
 | --- | --- |
-| `⌥⌘V` | Open or dismiss the Clip history panel |
+| `⌥⌘V` | Open or dismiss the Clipscreen history panel |
 | `↑` / `↓` | Navigate history items |
 | `Tab` / `⇧Tab` | Move focus down / up across entries |
 | `Return` | Paste selected entry into active application and close panel |
@@ -64,28 +64,28 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 
 ## Installation & Build
 
-Clip can be built locally in seconds without any package manager:
+Clipscreen can be built locally in seconds without any package manager:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/kirillzolygin/clip.git
-cd clip
+git clone https://github.com/kirillzolygin/clipscreen-macos.git
+cd clipscreen-macos
 
 # 2. Build the app bundle
 bash scripts/build-app.sh
 
-# 3. Launch Clip
-open .build/Clip.app
+# 3. Launch Clipscreen
+open .build/Clipscreen.app
 ```
 
-> **Tip:** For daily use, move `Clip.app` to `/Applications` before enabling login items or granting system permissions.
+> **Tip:** For daily use, move `Clipscreen.app` to `/Applications` before enabling login items or granting system permissions.
 
 ### First Launch & Permissions
 
-1. **Pasteboard Access**: When prompted by macOS, allow clipboard access so Clip can monitor copied items in the background.
-2. **Accessibility Permission (for 1-click paste)**: To allow Clip to automatically paste items into your destination app upon pressing `Return`, enable Clip in **System Settings → Privacy & Security → Accessibility**.
+1. **Pasteboard Access**: When prompted by macOS, allow clipboard access so Clipscreen can monitor copied items in the background.
+2. **Accessibility Permission (for 1-click paste)**: To allow Clipscreen to automatically paste items into your destination app upon pressing `Return`, enable Clipscreen in **System Settings → Privacy & Security → Accessibility**.
    *(If Accessibility is not granted, pressing Return will copy the item to the clipboard for manual `⌘V` pasting).*
-3. **Launch at Login**: Right-click the Clip icon in the macOS menu bar to enable "Launch at Login".
+3. **Launch at Login**: Right-click the Clipscreen icon in the macOS menu bar to enable "Launch at Login".
 
 ## Privacy & Data Storage
 

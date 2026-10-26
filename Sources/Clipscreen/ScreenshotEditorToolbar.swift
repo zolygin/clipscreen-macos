@@ -182,6 +182,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
 
     @objc private func openColorPicker() {
         let panel = NSColorPanel.shared
+        panel.title = "Clipscreen — Colors"
         ownsColorPanel = true
         panel.showsAlpha = false
         panel.isContinuous = true

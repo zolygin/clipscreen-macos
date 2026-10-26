@@ -1,6 +1,6 @@
-# Clip — Codebase Architecture & Summary
+# Clipscreen — Codebase Architecture & Summary
 
-Clip is a lightweight, native macOS clipboard manager and screenshot annotation utility inspired by Windows clipboard history (`Win+V`) and Snipping Tool, designed with Apple Human Interface Guidelines and AppKit.
+Clipscreen is a lightweight, native macOS clipboard manager and screenshot annotation utility inspired by Windows clipboard history (`Win+V`) and Snipping Tool, designed with Apple Human Interface Guidelines and AppKit.
 
 ---
 
@@ -15,9 +15,9 @@ Clip is a lightweight, native macOS clipboard manager and screenshot annotation 
 | **`⌘Z`** | **Undo** | Screenshot Editor | Reverts the last drawn annotation. |
 | **`⇧⌘Z`** | **Redo** | Screenshot Editor | Restores the previously undone annotation. |
 | **`⌘S`** | **Save…** | Screenshot Editor | Exports annotated screenshot to PNG on disk. |
-| **`Esc`** | **Close** | Both panels | Closes the panel/editor window without terminating Clip. |
+| **`Esc`** | **Close** | Both panels | Closes the panel/editor window without terminating Clipscreen. |
 
-> **Why `⌥⌘4`?**  
+> **Why `⌥⌘4`?**
 > macOS reserves `⌘⇧4` for its native screencapture utility. Using `⌥⌘4` provides a natural, memorable companion to `⌥⌘V` without colliding with system shortcuts.
 
 ---
@@ -27,45 +27,45 @@ Clip is a lightweight, native macOS clipboard manager and screenshot annotation 
 The main modules are listed below (older line counts are approximate):
 
 ### Core Application
-- **`Sources/Clip/main.swift`** (6 lines)  
+- **`Sources/Clipscreen/main.swift`** (6 lines)
   Application entry point initializing `NSApplication` with `AppDelegate`.
-- **`Sources/Clip/AppDelegate.swift`** (344 lines)  
+- **`Sources/Clipscreen/AppDelegate.swift`** (344 lines)
   Coordinates system integration, status item menu, global hotkeys, permission onboarding, and panel transitions.
-- **`Sources/Clip/HotKey.swift`** (45 lines)  
+- **`Sources/Clipscreen/HotKey.swift`** (45 lines)
   Carbon `EventHotKey` manager registering both `⌥⌘V` (history) and `⌥⌘4` (screenshot).
-- **`Sources/Clip/StatusIcon.swift`**
+- **`Sources/Clipscreen/StatusIcon.swift`**
   Uses original bundled Lucide clipboard/pause template images for the menu bar.
-- **`Sources/Clip/LucideIcon.swift`**
+- **`Sources/Clipscreen/LucideIcon.swift`**
   Shared loader for original SVG assets in `Resources/Lucide`, plus consistent icon-button sizing, a single surface for hover/press/active states, and an outlined active state.
 
 ### Clipboard Engine
-- **`Sources/Clip/History.swift`** (176 lines)  
+- **`Sources/Clipscreen/History.swift`** (176 lines)
   Pure data layer: `ClipEntry`, `ClipPayload`, atomic index serialization, LRU eviction (100 items), and disk cleanup.
-- **`Sources/Clip/HistoryModel.swift`** (79 lines)  
+- **`Sources/Clipscreen/HistoryModel.swift`** (79 lines)
   Thread-safe in-memory cache and background persistence queue.
-- **`Sources/Clip/Pasteboard.swift`** (154 lines)  
+- **`Sources/Clipscreen/Pasteboard.swift`** (154 lines)
   NSPasteboard polling, change detection, filtering transient/password manager types, and data serialization.
-- **`Sources/Clip/PasteController.swift`** (73 lines)  
+- **`Sources/Clipscreen/PasteController.swift`** (73 lines)
   Accessibility-driven synthetic paste (`⌘V`) into the previous frontmost application.
 
 ### UI & History Window
-- **`Sources/Clip/HistoryPanel.swift`** (472 lines)  
+- **`Sources/Clipscreen/HistoryPanel.swift`** (472 lines)
   Floating HUD panel with search field, scrollable entries, keyboard navigation (`↑`/`↓`), and right-click actions.
-- **`Sources/Clip/PanelSurface.swift`** (143 lines)  
+- **`Sources/Clipscreen/PanelSurface.swift`** (143 lines)
   Visual styling, vibrant translucent background, border shadows, and rounded glass effects.
 
 ### Screenshot & Annotation Editor (Modularized < 200 lines each)
-- **`Sources/Clip/AnnotationTypes.swift`** (157 lines)  
+- **`Sources/Clipscreen/AnnotationTypes.swift`** (157 lines)
   `AnnotationTool` enum, `AnnotationItem` data model, and high-performance Quartz 2D renderers (Pen, Arrow, Line, Rectangle, Filled Rectangle, Highlighter).
-- **`Sources/Clip/AnnotationCanvasView.swift`** (173 lines)  
+- **`Sources/Clipscreen/AnnotationCanvasView.swift`** (173 lines)
   Interactive drawing view, aspect-fit image scaling (100% visible, no clipping), mouse drag tracking, and independent Undo/Redo stacks.
-- **`Sources/Clip/ScreenshotEditorToolbar.swift`** (175 lines)  
+- **`Sources/Clipscreen/ScreenshotEditorToolbar.swift`** (175 lines)
   Adaptive 44/80 pt toolbar placed strictly below the native titlebar with tool buttons, color chips, per-tool stroke widths, persistent rainbow custom-color button and native color panel, and action handlers.
-- **`Sources/Clip/ScreenshotEditorWindow.swift`** (30 lines)  
+- **`Sources/Clipscreen/ScreenshotEditorWindow.swift`** (30 lines)
   Custom `NSWindow` intercepting keyboard equivalents (`⌘Z`, `⇧⌘Z`, `⌘C`, `⌘S`).
-- **`Sources/Clip/ScreenshotEditor.swift`** (140 lines)  
+- **`Sources/Clipscreen/ScreenshotEditor.swift`** (140 lines)
   `ScreenshotEditorWindowController` coordinating standard window titlebar (dedicated to dragging and 🔴 🟡 🟢), canvas, and export actions.
-- **`Sources/Clip/ColorCircleButton.swift`** (41 lines)  
+- **`Sources/Clipscreen/ColorCircleButton.swift`** (41 lines)
   Custom palette color circle buttons with active selection rings.
 
 ---
@@ -90,7 +90,7 @@ Following the repository's strict verification policy:
    ```bash
    bash scripts/build-app.sh
    ```
-   Builds `.build/Clip.app` with stable ad-hoc signing (`local.kirill.clip`) to preserve macOS Accessibility TCC permissions across builds.
+   Builds `.build/Clipscreen.app` with stable ad-hoc signing (`local.kirill.clip`) to preserve macOS Accessibility TCC permissions across builds.
 
 ### Editor controls
 `StrokeWidthMenu.swift` shares width presets across tool and annotation context menus, without a separate toolbar dropdown. `CustomColorButton.swift` draws the permanent rainbow-plus control. The canvas hit-tests the topmost annotation and uses undo/redo snapshots for reversible width edits. `Tests/AnnotationChecks.swift` checks menus, actual editor wiring/reflow, exported pixels and light/dark toolbars at 620–1000 pt.

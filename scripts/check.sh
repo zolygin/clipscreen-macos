@@ -7,9 +7,9 @@ SWIFT_COMPILER="$(xcrun --find swiftc)"
 ARCH="$(uname -m)"
 SDK_PATH="$(xcrun --show-sdk-path)"
 FLAGS=(-swift-version 5 -sdk "$SDK_PATH" -target "$ARCH-apple-macosx13.0" -module-cache-path "$PROJECT_DIR/.build/module-cache")
-"$SWIFT_COMPILER" -typecheck "${FLAGS[@]}" "$PROJECT_DIR"/Sources/Clip/*.swift
+"$SWIFT_COMPILER" -typecheck "${FLAGS[@]}" "$PROJECT_DIR"/Sources/Clipscreen/*.swift
 "$SWIFT_COMPILER" "${FLAGS[@]}" \
-    "$PROJECT_DIR/Sources/Clip/History.swift" "$PROJECT_DIR/Sources/Clip/Pasteboard.swift" \
+    "$PROJECT_DIR/Sources/Clipscreen/History.swift" "$PROJECT_DIR/Sources/Clipscreen/Pasteboard.swift" \
     "$PROJECT_DIR/Tests/ClipTests.swift" -o "$CHECK_DIR/ClipTests"
 "$CHECK_DIR/ClipTests"
 plutil -lint "$PROJECT_DIR/Resources/Info.plist"

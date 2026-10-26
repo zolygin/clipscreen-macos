@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let button = statusItem.button {
             button.image = StatusIcon.clipboard()
             button.image?.isTemplate = true
-            button.toolTip = "Clip · Clipboard history · ⌥⌘V"
+            button.toolTip = "Clipscreen · Clipboard history · ⌥⌘V"
             button.target = self
             button.action = #selector(statusClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKey.onCapturePress = { [weak self] in self?.captureScreen() }
         let result = hotKey.register()
         if result != noErr {
-            hotKeyMessage = "⌥⌘V is unavailable (code \(result)). Free this shortcut in the other app, then restart Clip."
+            hotKeyMessage = "⌥⌘V is unavailable (code \(result)). Free this shortcut in the other app, then restart Clipscreen."
         }
         monitor.start()
         monitor.poll()
@@ -175,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         _ = item("Clear History…", #selector(clearHistory))
         menu.addItem(.separator())
-        _ = item("Quit Clip", #selector(quit))
+        _ = item("Quit Clipscreen", #selector(quit))
         return menu
     }
 
@@ -269,13 +269,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func enableReading() {
         panel.dismiss()
         if #available(macOS 15.4, *), NSPasteboard.general.accessBehavior == .alwaysDeny {
-            showAlert(title: "Allow Clipboard Access", message: "Open System Settings → Privacy & Security and allow Clip to always read the clipboard.")
+            showAlert(title: "Allow Clipboard Access", message: "Open System Settings → Privacy & Security and allow Clipscreen to always read the clipboard.")
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security")!)
         } else {
             // Only this explicit user action may trigger macOS's pasteboard prompt.
             monitor.poll(userInitiated: true)
             if needsReadPermission {
-                showAlert(title: "Always Allow Clipboard Access", message: "To save history in the background, allow Clip to always read the clipboard in System Settings. One-time access only saves the current item.")
+                showAlert(title: "Always Allow Clipboard Access", message: "To save history in the background, allow Clipscreen to always read the clipboard in System Settings. One-time access only saves the current item.")
             }
         }
         refresh()
@@ -289,7 +289,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             panel.dismiss()
-            showAlert(title: "Could Not Change Login Setting", message: "Check Clip in System Settings → General → Login Items. (Error \((error as NSError).code))")
+            showAlert(title: "Could Not Change Login Setting", message: "Check Clipscreen in System Settings → General → Login Items. (Error \((error as NSError).code))")
         }
     }
     @objc private func clearHistory() {
@@ -317,7 +317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         let app = NSMenuItem()
         let appMenu = NSMenu()
-        let quit = NSMenuItem(title: "Quit Clip", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Clipscreen", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         appMenu.addItem(quit)
         app.submenu = appMenu

@@ -28,7 +28,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             backing: .buffered, defer: false
         )
         editorWindow.minSize = NSSize(width: 620, height: 400)
-        editorWindow.title = "Screenshot Editor"
+        editorWindow.title = "Clipscreen — Screenshot Editor"
         editorWindow.isReleasedWhenClosed = false
         editorWindow.center()
         super.init(window: editorWindow)

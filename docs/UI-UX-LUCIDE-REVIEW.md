@@ -51,7 +51,7 @@ Retained: 18 pt panel corners, 16 pt content insets, 76 pt rows with 4 pt separa
 ## Files changed
 
 - `Resources/Lucide/*`: original SVGs, ISC license and pinned source provenance.
-- `Sources/Clip/LucideIcon.swift`: shared cached vector loader and icon button with one surface for hover/press/active feedback and explicit active outline.
+- `Sources/Clipscreen/LucideIcon.swift`: shared cached vector loader and icon button with one surface for hover/press/active feedback and explicit active outline.
 - `HistoryPanel.swift`: actual Pin edge anchoring, icon replacements, smaller menu/grip, isolated resize drag, end-only geometry persistence, keyboard pin/filter actions and accessible button state.
 - `PanelSurface.swift`: pinned-group separator placement.
 - `AnnotationTypes.swift`, `ScreenshotEditorToolbar.swift`, `StatusIcon.swift`: original Lucide tool and status icons. Paint bucket distinguishes filled rectangle from its outline.

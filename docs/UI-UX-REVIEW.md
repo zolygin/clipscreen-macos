@@ -35,10 +35,10 @@ Intentional exceptions: list container inset is 8 pt to leave room for rounded s
 
 ## Files changed
 
-- `Sources/Clip/PanelSurface.swift`: shared visual constants, standard material mask, macOS 26 glass container, opaque accessibility fallback, theme updates and rounded selection.
-- `Sources/Clip/HistoryPanel.swift`: compact text grouping, bounded previews, footer, English content, loading state, search over display labels, keyboard handler and accessible hints.
-- `Sources/Clip/History.swift`, `HistoryModel.swift`, `Pasteboard.swift`: English generated/error labels, legacy image presentation, loading status, whitespace labels. Payload persistence and retention semantics are unchanged.
-- `Sources/Clip/AppDelegate.swift`, `PasteController.swift`: English menus, permission/recovery copy and app-owned errors. Open History uses a native menu key equivalent.
+- `Sources/Clipscreen/PanelSurface.swift`: shared visual constants, standard material mask, macOS 26 glass container, opaque accessibility fallback, theme updates and rounded selection.
+- `Sources/Clipscreen/HistoryPanel.swift`: compact text grouping, bounded previews, footer, English content, loading state, search over display labels, keyboard handler and accessible hints.
+- `Sources/Clipscreen/History.swift`, `HistoryModel.swift`, `Pasteboard.swift`: English generated/error labels, legacy image presentation, loading status, whitespace labels. Payload persistence and retention semantics are unchanged.
+- `Sources/Clipscreen/AppDelegate.swift`, `PasteController.swift`: English menus, permission/recovery copy and app-owned errors. Open History uses a native menu key equivalent.
 - `Resources/Info.plist`: English development/supported language; version 0.2.0 (2).
 - `Tests/ClipTests.swift`, `Tests/PanelPreview.swift`, `scripts/check-ui.sh`: localization regression checks, keyboard checks and view scenarios.
 - `scripts/build-app.sh`: optional absolute output bundle path, allowing an updated build without overwriting the running app.
