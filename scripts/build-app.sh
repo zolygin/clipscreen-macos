@@ -10,6 +10,13 @@ fi
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$PROJECT_DIR/.build/module-cache"
 cp "$PROJECT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp -R "$PROJECT_DIR/Resources/Lucide" "$APP_DIR/Contents/Resources/"
+cp "$PROJECT_DIR/LICENSE" "$APP_DIR/Contents/Resources/LICENSE"
+SOURCE_REVISION="$(git -C "$PROJECT_DIR" rev-parse --short=12 HEAD 2>/dev/null || printf 'source-archive')"
+if [[ "$SOURCE_REVISION" != source-archive ]] && ! git -C "$PROJECT_DIR" diff --quiet HEAD -- Sources Resources scripts; then
+    SOURCE_REVISION="$SOURCE_REVISION+modified"
+fi
+plutil -insert ClipscreenSourceRevision -string "$SOURCE_REVISION" "$APP_DIR/Contents/Info.plist"
+plutil -insert ClipscreenBuildDate -string "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$APP_DIR/Contents/Info.plist"
 SWIFT_COMPILER="$(xcrun --find swiftc)"
 ARCH="$(uname -m)"
 SDK_PATH="$(xcrun --show-sdk-path)"

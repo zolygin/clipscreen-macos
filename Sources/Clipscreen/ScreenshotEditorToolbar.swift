@@ -30,7 +30,8 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     private var colorButtons: [NSColor: ColorCircleButton] = [:]
     private var widths: [AnnotationTool: CGFloat] = [:]
     private var activeColor: NSColor = .systemRed
-    private var ownsColorPanel = false
+    private static weak var colorPanelOwner: ScreenshotEditorToolbar?
+    private var ownsColorPanel: Bool { Self.colorPanelOwner === self }
     private lazy var customColor = CustomColorButton(target: self, action: #selector(openColorPicker))
     private let topRow = NSStackView()
     private let bottomRow = NSStackView()
@@ -183,7 +184,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     @objc private func openColorPicker() {
         let panel = NSColorPanel.shared
         panel.title = "Clipscreen — Colors"
-        ownsColorPanel = true
+        Self.colorPanelOwner = self
         panel.showsAlpha = false
         panel.isContinuous = true
         panel.color = activeColor
@@ -197,7 +198,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         NSColorPanel.shared.setTarget(nil)
         NSColorPanel.shared.setAction(nil)
         NSColorPanel.shared.orderOut(nil)
-        ownsColorPanel = false
+        Self.colorPanelOwner = nil
     }
 
     @objc private func customColorChanged(_ sender: NSColorPanel) {

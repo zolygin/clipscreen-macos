@@ -8,6 +8,10 @@ final class ScreenshotEditorWindow: NSWindow {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == [.command], event.charactersIgnoringModifiers == "w" {
+            performClose(nil)
+            return true
+        }
         if flags == [.command], event.charactersIgnoringModifiers == "z" {
             onUndo?()
             return true
@@ -27,4 +31,6 @@ final class ScreenshotEditorWindow: NSWindow {
         }
         return super.performKeyEquivalent(with: event)
     }
+
+    override func cancelOperation(_ sender: Any?) { performClose(sender) }
 }

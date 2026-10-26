@@ -17,19 +17,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var actionMessage: String?
     private var isChoosing = false
     private var choiceGeneration = 0
-    private var editorController: ScreenshotEditorWindowController?
+    // Every open editor needs an owner until its window closes. A single slot
+    // released earlier controllers while their windows could remain on screen.
+    private var editorControllers: [ScreenshotEditorWindowController] = []
+    private var editorSerial = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let bundleID = Bundle.main.bundleIdentifier,
-           NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
-            .contains(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
+           let existing = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            .first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
+            if existing.bundleURL?.standardizedFileURL != Bundle.main.bundleURL.standardizedFileURL {
+                showAlert(title: "Another copy of Clipscreen is running",
+                          message: "Quit the running copy through its menu bar menu, then open this build again.\n\nRunning copy:\n\(existing.bundleURL?.path ?? "Unknown location")\n\nThis copy:\n\(Bundle.main.bundleURL.path)")
+            } else {
+                existing.activate(options: [.activateAllWindows])
+            }
             NSApp.terminate(nil)
             return
         }
         NSApp.setActivationPolicy(.accessory)
         installApplicationMenu()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Clip", isDirectory: true)
+            .appendingPathComponent("Clip", isDirectory: true) // Keep the original history location across the rename.
         model = HistoryModel(directory: directory)
         model.onChange = { [weak self] in self?.refresh() }
         monitor.onCapture = { [weak self] in self?.model.add($0) }
@@ -154,6 +163,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
+        let info = Bundle.main.infoDictionary ?? [:]
+        let version = info["CFBundleShortVersionString"] as? String ?? "Development"
+        let build = info["CFBundleVersion"] as? String ?? "?"
+        let identity = NSMenuItem(title: "Clipscreen \(version) (\(build))", action: nil, keyEquivalent: "")
+        identity.toolTip = [info["ClipscreenBuildDate"] as? String, info["ClipscreenSourceRevision"] as? String,
+                            Bundle.main.bundleURL.path].compactMap { $0 }.joined(separator: "\n")
+        menu.addItem(identity)
+        menu.addItem(.separator())
         func item(_ title: String, _ action: Selector) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
@@ -209,10 +226,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func openEditor(with image: NSImage) {
         NSApp.activate(ignoringOtherApps: true)
         let editor = ScreenshotEditorWindowController(image: image)
-        self.editorController = editor
-        editor.onComplete = { [weak self] annotatedImage in
+        editorSerial += 1
+        editor.window?.title = "Clipscreen — Screenshot \(editorSerial)"
+        editorControllers.append(editor)
+        editor.onComplete = { [weak self, weak editor] annotatedImage in
             guard let self else { return }
-            self.editorController = nil
+            if let editor { self.editorControllers.removeAll { $0 === editor } }
             if let tiff = annotatedImage.tiffRepresentation,
                let rep = NSBitmapImageRep(data: tiff),
                let png = rep.representation(using: .png, properties: [:]) {
@@ -223,8 +242,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.monitor.poll(userInitiated: true)
             }
         }
-        editor.onCancel = { [weak self] in
-            self?.editorController = nil
+        editor.onCancel = { [weak self, weak editor] in
+            if let editor { self?.editorControllers.removeAll { $0 === editor } }
         }
         editor.showWindow(nil)
         editor.window?.makeKeyAndOrderFront(nil)
@@ -335,5 +354,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         edit.submenu = editMenu
         menu.addItem(edit)
         NSApp.mainMenu = menu
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(NSMenuItem(title: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: ""))
+        windowItem.submenu = windowMenu
+        menu.addItem(windowItem)
+        NSApp.windowsMenu = windowMenu
     }
 }

@@ -126,6 +126,23 @@ enum AnnotationChecks {
         }
         print("PASS actual editor reflow at 620/680/719/720/1000 pt, with reserved canvas space")
 
+        let secondEditor = ScreenshotEditorWindowController(image: image)
+        var firstClosed = 0
+        var secondClosed = 0
+        controller.onCancel = { firstClosed += 1 }
+        secondEditor.onCancel = { secondClosed += 1 }
+        let closeKey = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+                                        timestamp: 0, windowNumber: secondEditor.window!.windowNumber,
+                                        context: nil, characters: "w", charactersIgnoringModifiers: "w", isARepeat: false, keyCode: 13)!
+        precondition(secondEditor.window!.performKeyEquivalent(with: closeKey))
+        precondition(secondClosed == 1 && firstClosed == 0, "Command-W must close only its editor")
+        editorToolbar.selectLineWidth(10, for: .line)
+        precondition(editorCanvas.activeTool == .line && editorCanvas.activeLineWidth == 10,
+                     "Closing another editor must preserve this editor's handlers")
+        editorWindow.cancelOperation(nil)
+        precondition(firstClosed == 1, "Escape/cancel must close its editor")
+        print("PASS independent editor handlers and Command-W / Escape close callbacks")
+
         var count = 1
         for appearance: NSAppearance.Name in [.aqua, .darkAqua] {
             for size: CGFloat in [620, 680, 720, 1000] {

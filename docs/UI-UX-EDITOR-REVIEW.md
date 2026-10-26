@@ -139,3 +139,23 @@ The renderer does not move the user's pointer, show windows, open the color pane
 The standard macOS color panel has not been opened during automated checks, respecting the user's request to operate the app themselves. VoiceOver, live menu tracking and the picker close/reopen interaction still need a manual walkthrough. Offscreen tests do not prove compositor frame pacing. Per-tool values reset in a new editor session; no persistent preferences are claimed.
 
 The original editor bundle is `.build/editor/Clip.app`; the simplified follow-up is `.build/simplified/Clip.app`, built separately so the current app is not overwritten or quit automatically. Quit the current Clip through its menu bar menu before launching the new bundle from Terminal.
+
+## Rename and window lifecycle follow-up — 2026-10-26
+
+Diagnosis: six local app bundles all advertised 0.2.0 (2), despite different compilation times. This makes old/new copies hard to distinguish; the user confirmed that an earlier copy was still open. Inspection also found that the app retained only the latest screenshot controller, allowing earlier editor windows to outlive their handlers.
+
+Changed: the product, executable and history heading use **Clipscreen** (one word), version 0.3.0 (3). The source directory is `Sources/Clipscreen`, and the repository directory is renamed `clipscreen-macos`. The builder has one canonical `.build/Clipscreen.app` output, includes the MIT notice and records source revision/build date. A disabled status-menu entry exposes version/build, with provenance and running path in its tooltip. A duplicate copy from another path now identifies the running copy rather than silently terminating. History location, bundle identifier and preference keys are retained for compatibility.
+
+Each open screenshot controller is retained independently and removed by identity when its window closes. Screenshot windows are numbered and branded; the native Window menu lists editors. Command-W and Escape close the targeted editor. The color panel title identifies its owning app and is still closed when its editor closes. No toolbar dimensions, history-row density or icon geometry change in this follow-up.
+
+Filled implementation QA for this diff:
+
+- [x] Architecture: retain AppKit/data-flow and shared style tokens; add no claims or fabricated clipboard content.
+- [x] Behavior: correct brand, build identity, independent controller ownership and close callbacks; no speculative change to the user's reported old UI bugs.
+- [x] Forms: drawing input and widths/colors survive another editor's close; no new form, OTP or validation workflow.
+- [x] Accessibility: preserve native controls; provide native Window-menu actions, Command-W/Escape and clear window titles. Full VoiceOver tracking remains a manual check.
+- [x] Responsive: existing 320–850 pt history and 620–1000 pt editor scenarios pass; the single-word heading fits the narrow render.
+- [x] Recovery: storage tests pass and persistence identity is unchanged; closing one editor does not close another or disable its callbacks.
+- [x] Visual fidelity: reviewed actual light/dark/narrow native renders; refreshed README screenshots from synthetic fixtures. Existing spacing, type and icon sizes are unchanged.
+- [x] Verification: 22 isolated tests, 42 rendered/export scenarios and new targeted close/heading assertions pass. Shell syntax and whitespace pass; no formatter is configured.
+- [ ] Manual limits: live Window-menu tracking, duplicate-instance alert and compositor behavior have not been tested by controlling the user's app. Build signatures and metadata are verified separately after compilation.
