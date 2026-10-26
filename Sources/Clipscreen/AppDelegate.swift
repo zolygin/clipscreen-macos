@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // released earlier controllers while their windows could remain on screen.
     private var editorControllers: [ScreenshotEditorWindowController] = []
     private var editorSerial = 0
+    private let editorPresenter = ScreenshotEditorPresenter()
+    private var isCapturingScreen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let bundleID = Bundle.main.bundleIdentifier,
@@ -89,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        editorPresenter.cancel()
         monitor.stop()
         paste.cancel()
         model?.flush()
@@ -198,6 +201,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openHistory() { showPanel() }
     @objc private func captureScreen() {
+        guard !isCapturingScreen else { return }
+        isCapturingScreen = true
+        editorPresenter.cancel()
         panel.dismiss()
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("clip_capture_\(UUID().uuidString).png")
@@ -208,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             task.terminationHandler = { proc in
                 DispatchQueue.main.async {
                     defer { try? FileManager.default.removeItem(at: tempURL) }
+                    self?.isCapturingScreen = false
                     guard proc.terminationStatus == 0,
                           let image = NSImage(contentsOf: tempURL) else {
                         return
@@ -218,13 +225,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do {
                 try task.run()
             } catch {
+                self?.isCapturingScreen = false
+                try? FileManager.default.removeItem(at: tempURL)
                 NSLog("Failed to run screencapture: \(error)")
             }
         }
     }
 
     private func openEditor(with image: NSImage) {
-        NSApp.activate(ignoringOtherApps: true)
         let editor = ScreenshotEditorWindowController(image: image)
         editorSerial += 1
         editor.window?.title = "Clipscreen — Screenshot \(editorSerial)"
@@ -245,8 +253,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         editor.onCancel = { [weak self, weak editor] in
             if let editor { self?.editorControllers.removeAll { $0 === editor } }
         }
-        editor.showWindow(nil)
-        editor.window?.makeKeyAndOrderFront(nil)
+        if let window = editor.window { editorPresenter.present(window) }
     }
 
     private func editImageEntry(_ entry: ClipEntry) {

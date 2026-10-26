@@ -103,8 +103,12 @@ enum AnnotationChecks {
         try thick.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("annotation-marker-40.png"))
         print("PASS actual marker thickness in exported pixels")
 
+        PresentationChecks.run()
         let controller = ScreenshotEditorWindowController(image: image)
         let editorWindow = controller.window!
+        precondition(editorWindow.collectionBehavior.contains(.moveToActiveSpace)
+                     && editorWindow.collectionBehavior.contains(.fullScreenAuxiliary))
+        precondition(editorWindow.level == .normal, "Presenting an editor must not permanently pin it above other apps")
         let content = editorWindow.contentView!
         let editorToolbar = PanelPreview.descendants(content).compactMap { $0 as? ScreenshotEditorToolbar }.first!
         let editorCanvas = PanelPreview.descendants(content).compactMap { $0 as? AnnotationCanvasView }.first!
@@ -419,5 +423,133 @@ enum AnnotationChecks {
                 precondition(!a.intersects(b), "Toolbar controls overlap: \(first) and \(second)")
             }
         }
+    }
+}
+
+/// All ordering and activation calls are intercepted; these tests never show a
+/// window, activate the test executable, or launch the system capture tool.
+private final class PresentationWindow: NSWindow {
+    var visibleForTest = false
+    var keyForTest = false
+    var miniaturizedForTest = false
+    var canReceiveKeyForTest = false
+    var frontCalls = 0
+    var keyCalls = 0
+    override var isVisible: Bool { visibleForTest }
+    override var isKeyWindow: Bool { keyForTest }
+    override var isMiniaturized: Bool { miniaturizedForTest }
+    override func orderFrontRegardless() { frontCalls += 1; visibleForTest = true }
+    override func makeKeyAndOrderFront(_ sender: Any?) {
+        keyCalls += 1
+        visibleForTest = true
+        if canReceiveKeyForTest { keyForTest = true }
+    }
+    override func deminiaturize(_ sender: Any?) { miniaturizedForTest = false }
+}
+
+private enum PresentationChecks {
+    static func run() {
+        func window() -> PresentationWindow {
+            PresentationWindow(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+                               styleMask: [.titled], backing: .buffered, defer: false)
+        }
+        let notifications = NotificationCenter()
+        var active = false
+        var activations = 0
+        var scheduled: [(TimeInterval, DispatchWorkItem)] = []
+        let first = window()
+        let presenter = ScreenshotEditorPresenter(notifications: notifications, activate: {
+            precondition(first.visibleForTest, "An editor must exist and be visible before activation is requested")
+            activations += 1
+        }, isApplicationActive: { active }, schedule: { scheduled.append(($0, $1)) })
+        presenter.present(first)
+        precondition(activations == 1 && first.frontCalls == 1 && first.keyCalls == 1)
+        precondition(scheduled.map { $0.0 } == [0.15, 0.4, 0.8])
+        // The activation notification, not synchronous return, completes keyboard focus.
+        active = true
+        first.canReceiveKeyForTest = true
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        precondition(first.keyForTest && first.frontCalls == 2 && first.keyCalls == 2)
+        scheduled[0].1.perform()
+        let finishedFront = first.frontCalls
+        let finishedActivation = activations
+        scheduled.forEach { $0.1.perform() }
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        precondition(first.frontCalls == finishedFront && activations == finishedActivation,
+                     "A settled editor must stop retrying and observing future activations")
+        print("PASS editor presentation: visible before activation, asynchronous focus, stop after success")
+
+        scheduled.removeAll()
+        active = false
+        first.keyForTest = false
+        first.canReceiveKeyForTest = false
+        presenter.present(first)
+        let beforeRestore = first.frontCalls
+        scheduled[0].1.perform() // screencapture has restored the source app instead.
+        precondition(first.frontCalls > beforeRestore)
+        first.canReceiveKeyForTest = true
+        active = true
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        scheduled[1].1.perform()
+        let requestsAfterRestore = activations
+        scheduled[2].1.perform()
+        precondition(activations == requestsAfterRestore && first.keyForTest)
+        print("PASS editor presentation: capture/source-app focus race recovers and stops")
+
+        scheduled.removeAll()
+        active = false
+        first.keyForTest = false
+        first.canReceiveKeyForTest = false
+        let beforeDenied = activations
+        presenter.present(first)
+        scheduled.forEach { $0.1.perform() }
+        precondition(activations - beforeDenied == 4, "Denied activation must have a bounded retry budget")
+        let afterDenied = first.frontCalls
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        precondition(first.frontCalls == afterDenied)
+        print("PASS editor presentation: denied activation cannot create an endless focus loop")
+
+        scheduled.removeAll()
+        presenter.present(first)
+        notifications.post(name: NSWindow.willCloseNotification, object: first)
+        first.visibleForTest = false
+        let afterClose = activations
+        scheduled.forEach { $0.1.perform() }
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        precondition(!first.visibleForTest && activations == afterClose, "Closing an editor must cancel stale presentation work")
+        print("PASS editor presentation: close cancels queued focus requests without reopening")
+
+        // Hidden/minimized windows reflect a later user decision and must stay that way.
+        for minimize in [false, true] {
+            scheduled.removeAll()
+            presenter.present(first)
+            if minimize { first.miniaturizedForTest = true }
+            else { first.visibleForTest = false }
+            let count = activations
+            scheduled.forEach { $0.1.perform() }
+            precondition(activations == count)
+            if minimize { precondition(first.miniaturizedForTest); first.miniaturizedForTest = false }
+            else { precondition(!first.visibleForTest) }
+        }
+        print("PASS editor presentation: hide/minimize cancels retry without reversing the user's action")
+
+        scheduled.removeAll()
+        presenter.present(first)
+        let oldWork = scheduled
+        let second = window()
+        second.canReceiveKeyForTest = true
+        presenter.present(second)
+        let firstCount = first.frontCalls
+        oldWork.forEach { $0.1.perform() }
+        notifications.post(name: NSWindow.willCloseNotification, object: first)
+        active = true
+        notifications.post(name: NSApplication.didBecomeActiveNotification, object: nil)
+        precondition(first.frontCalls == firstCount && second.keyForTest,
+                     "A newer editor must supersede old focus work; closing the old one must not cancel the new one")
+        presenter.cancel()
+        let secondCount = second.frontCalls
+        scheduled.forEach { $0.1.perform() }
+        precondition(second.frontCalls == secondCount, "Starting another capture must cancel pending editor activation")
+        print("PASS editor presentation: newest editor wins; explicit capture cancellation invalidates old retries")
     }
 }
