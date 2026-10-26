@@ -206,6 +206,8 @@ struct PanelPreview {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 780, height: 44),
                                   styleMask: [.borderless], backing: .buffered, defer: false)
             let toolbar = ScreenshotEditorToolbar()
+            toolbar.frame = NSRect(origin: .zero, size: window.contentRect(forFrameRect: window.frame).size)
+            toolbar.autoresizingMask = [.width, .height]
             window.contentView = toolbar
             window.appearance = NSAppearance(named: appearance)
             toolbar.updateToolSelection(activeTool: .filledRect)

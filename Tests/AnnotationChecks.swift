@@ -116,15 +116,15 @@ enum AnnotationChecks {
         arrowButton.performClick(nil)
         precondition(editorCanvas.activeTool == .arrow && editorCanvas.activeLineWidth == 6,
                      "Changing tools must restore that tool's width on the actual canvas")
-        for value: CGFloat in [620, 1000, 680, 719, 720, 620] {
+        for value: CGFloat in [620, 1000, 680, 779, 780, 620] {
             editorWindow.setContentSize(NSSize(width: value, height: 440))
             content.layoutSubtreeIfNeeded()
             content.layoutSubtreeIfNeeded()
-            precondition(editorToolbar.frame.height == (value < 720 ? 80 : 44),
+            precondition(editorToolbar.frame.height == (value < 780 ? 80 : 44),
                          "Editor must reserve the adaptive toolbar height")
             verifyToolbar(editorToolbar)
         }
-        print("PASS actual editor reflow at 620/680/719/720/1000 pt, with reserved canvas space")
+        print("PASS actual editor reflow at 620/680/779/780/1000 pt, with reserved canvas space")
 
         let secondEditor = ScreenshotEditorWindowController(image: image)
         var firstClosed = 0
@@ -145,10 +145,12 @@ enum AnnotationChecks {
 
         var count = 1
         for appearance: NSAppearance.Name in [.aqua, .darkAqua] {
-            for size: CGFloat in [620, 680, 720, 1000] {
+            for size: CGFloat in [620, 680, 780, 1000] {
                 let previewWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: size, height: 80),
                                              styleMask: [.borderless], backing: .buffered, defer: false)
                 let preview = ScreenshotEditorToolbar()
+                preview.frame = NSRect(origin: .zero, size: previewWindow.contentRect(forFrameRect: previewWindow.frame).size)
+                preview.autoresizingMask = [.width, .height]
                 previewWindow.contentView = preview
                 previewWindow.appearance = NSAppearance(named: appearance)
                 preview.selectLineWidth(6, for: .arrow)
@@ -169,7 +171,232 @@ enum AnnotationChecks {
                 print("PASS \(name): adaptive grouping, no redundant width control, custom rainbow state")
             }
         }
+        count += try checkText(directory: directory)
         return count
+    }
+
+    private static func checkText(directory: URL) throws -> Int {
+        let image = NSImage(size: NSSize(width: 640, height: 360), flipped: false) { rect in
+            NSColor.white.setFill(); rect.fill(); return true
+        }
+        let controller = ScreenshotEditorWindowController(image: image)
+        let window = controller.window!
+        let content = window.contentView!
+        let canvas = PanelPreview.descendants(content).compactMap { $0 as? AnnotationCanvasView }.first!
+        let toolbar = PanelPreview.descendants(content).compactMap { $0 as? ScreenshotEditorToolbar }.first!
+        let textButton = PanelPreview.descendants(toolbar).compactMap { $0 as? ClipIconButton }
+            .first { $0.accessibilityLabel() == "Text — click the image to type" }!
+        textButton.performClick(nil)
+        content.layoutSubtreeIfNeeded()
+        precondition(canvas.activeTool == .text && toolbar.preferredHeight == 80)
+        toolbar.selectTextStyle(AnnotationTextStyle(font: .serif, size: 32))
+        precondition(canvas.activeTextStyle == toolbar.textStyle)
+        func key(_ code: UInt16, _ chars: String, _ flags: NSEvent.ModifierFlags = []) -> NSEvent {
+            NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                            windowNumber: window.windowNumber, context: nil, characters: chars,
+                            charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)!
+        }
+        func mouse(_ type: NSEvent.EventType, _ point: CGPoint, count: Int = 1) -> NSEvent {
+            let rect = canvas.imageRect
+            let scale = rect.width / image.size.width
+            let location = canvas.convert(NSPoint(x: rect.minX + point.x * scale, y: rect.minY + point.y * scale), to: nil)
+            return NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: 0,
+                                     windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                     clickCount: count, pressure: 1)!
+        }
+        // A native text view, not a modal prompt: text remains editable on the canvas.
+        canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: 40, y: 300)))
+        let editor = canvas.textEditor!
+        editor.insertText("Hello, Clipscreen!", replacementRange: NSRange(location: NSNotFound, length: 0))
+        editor.keyDown(with: key(36, "\r"))
+        editor.insertText("Привет, Mac 👋", replacementRange: NSRange(location: NSNotFound, length: 0))
+        precondition(editor.string.contains("\n") && canvas.items.isEmpty)
+        precondition(!window.performKeyEquivalent(with: key(36, "\r")), "Return must not copy/close the screenshot during text input")
+        precondition(window.performKeyEquivalent(with: key(0, "a", .command)))
+        precondition(editor.selectedRange().length == (editor.string as NSString).length)
+        precondition(window.performKeyEquivalent(with: key(36, "\r", .command)))
+        precondition(canvas.items.count == 1 && canvas.items[0].text.contains("Привет"))
+        precondition(canvas.items[0].textStyle == AnnotationTextStyle(font: .serif, size: 32))
+        canvas.undo(); precondition(canvas.items.isEmpty)
+        canvas.redo(); precondition(canvas.items.count == 1)
+
+        let first = canvas.items[0]
+        let rect = AnnotationRenderer.textRect(for: first)
+        precondition(AnnotationRenderer.contains(CGPoint(x: rect.midX, y: rect.midY), in: first, tolerance: 0))
+        canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: rect.minX + 10, y: rect.maxY - 10), count: 2))
+        precondition(canvas.textEditor != nil)
+        canvas.textEditor!.string = "Cancelled edit"
+        toolbar.selectTextStyle(AnnotationTextStyle(font: .monospaced, size: 48))
+        canvas.textEditor!.keyDown(with: key(53, "\u{1b}"))
+        precondition(canvas.items[0].text == first.text && canvas.items[0].textStyle == first.textStyle,
+                     "Escape must restore the original text and style without closing the editor")
+        // Selected-object style changes and movement are reversible too.
+        toolbar.selectTextStyle(AnnotationTextStyle(font: .monospaced, size: 24))
+        precondition(canvas.items[0].textStyle.font == .monospaced)
+        canvas.undo(); precondition(canvas.items[0].textStyle == first.textStyle)
+        canvas.redo()
+        let beforeMove = canvas.items[0].startPoint
+        let hit = CGPoint(x: beforeMove.x + 8, y: beforeMove.y - 8)
+        canvas.mouseDown(with: mouse(.leftMouseDown, hit))
+        canvas.mouseDragged(with: mouse(.leftMouseDragged, CGPoint(x: hit.x + 20, y: hit.y - 30)))
+        canvas.mouseUp(with: mouse(.leftMouseUp, CGPoint(x: hit.x + 20, y: hit.y - 30)))
+        precondition(canvas.items[0].startPoint != beforeMove)
+        canvas.undo(); precondition(canvas.items[0].startPoint == beforeMove)
+        canvas.redo()
+        canvas.mouseDown(with: mouse(.leftMouseDown, CGPoint(x: canvas.items[0].startPoint.x + 8, y: canvas.items[0].startPoint.y - 8)))
+        canvas.mouseUp(with: mouse(.leftMouseUp, CGPoint(x: canvas.items[0].startPoint.x + 8, y: canvas.items[0].startPoint.y - 8)))
+        canvas.setColor(.systemBlue)
+        precondition(canvas.items[0].color == .systemBlue)
+        canvas.undo(); precondition(canvas.items[0].color == first.color)
+        canvas.redo()
+        precondition(canvas.widthMenu(at: CGPoint(x: canvas.items[0].startPoint.x + 5, y: canvas.items[0].startPoint.y - 5))?.items.first?.title == "Edit Text…")
+        // Export must include the latest uncommitted text without editor chrome.
+        canvas.beginText(at: CGPoint(x: 40, y: 140))
+        canvas.textEditor!.insertText("Saved draft", replacementRange: NSRange(location: NSNotFound, length: 0))
+        let exported = NSBitmapImageRep(data: canvas.renderAnnotatedImage().tiffRepresentation!)!
+        precondition(canvas.items.count == 2 && canvas.textEditor == nil)
+        var colored = 0
+        for x in 30..<500 {
+            for y in 30..<300 {
+                let color = exported.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+                if color.blueComponent > 0.5 && color.redComponent < 0.7 { colored += 1 }
+            }
+        }
+        precondition(colored > 100, "Text must be present in exported pixels")
+        try exported.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("editor-text-export.png"))
+        canvas.beginText(at: .zero)
+        canvas.textEditor!.string = "   \n"
+        canvas.finishTextEditing()
+        precondition(canvas.items.count == 2, "Whitespace-only text must not create an invisible annotation")
+        canvas.beginText(at: canvas.items[1].startPoint, editing: 1)
+        canvas.textEditor!.string = ""
+        canvas.finishTextEditing()
+        precondition(canvas.items.count == 1)
+        canvas.undo(); precondition(canvas.items.count == 2)
+        canvas.redo(); precondition(canvas.items.count == 1)
+        precondition(window.performKeyEquivalent(with: key(36, "\r")))
+        precondition(canvas.textEditor != nil, "Keyboard-only Return on the canvas must open text input")
+        canvas.finishTextEditing(commit: false)
+        toolbar.selectTextStyle(AnnotationTextStyle(font: .serif, size: .nan))
+        precondition(toolbar.textStyle.size.isFinite)
+        print("PASS text: actual typing, newlines, Unicode, cancel, style/color, drag, deletion, Undo/Redo, keyboard routing and PNG export")
+
+        let fontNames = Set(AnnotationFont.allCases.map { $0.font(size: 24).fontName })
+        precondition(fontNames.count == 3, "All three system font designs must resolve distinctly")
+        print("PASS three distinct installed Apple system font designs")
+        var count = 1
+        for theme: NSAppearance.Name in [.aqua, .darkAqua] {
+            for width: CGFloat in [620, 780, 900, 960, 1000, 1440] {
+                window.appearance = NSAppearance(named: theme)
+                window.setContentSize(NSSize(width: width, height: 520))
+                toolbar.updateToolSelection(activeTool: .text)
+                for font in AnnotationFont.allCases {
+                    toolbar.selectTextStyle(AnnotationTextStyle(font: font, size: 96))
+                    content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
+                    verifyToolbar(toolbar)
+                    precondition(abs(toolbar.bounds.width - width) < 0.5,
+                                 "The toolbar must not impose its old single-row width: requested \(width), actual \(toolbar.bounds.width)")
+                    precondition(PanelPreview.descendants(toolbar).compactMap { $0 as? NSPopUpButton }
+                        .filter { !$0.isHiddenOrHasHiddenAncestor }.count == 2,
+                        "Both text controls must remain attached and visible")
+                    precondition(width < 960 || toolbar.preferredHeight == 44,
+                                 "Wide text toolbars must stay on one row: width \(width), height \(toolbar.preferredHeight)")
+                    precondition(width > 780 || toolbar.preferredHeight == 80,
+                                 "Narrow text toolbars must reserve room for all controls: width \(width), height \(toolbar.preferredHeight)")
+                    precondition(toolbar.frame.height == toolbar.preferredHeight,
+                                 "The actual editor must reserve the measured toolbar height")
+                }
+                toolbar.selectTextStyle(AnnotationTextStyle(font: .monospaced, size: 24))
+                content.layoutSubtreeIfNeeded()
+                let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds)!
+                content.cacheDisplay(in: content.bounds, to: bitmap)
+                let name = "editor-text-\(theme == .aqua ? "light" : "dark")-\(Int(width))"
+                try bitmap.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent(name + ".png"))
+                count += 1
+                print("PASS \(name): text controls, all font choices and 96 pt selection remain inside toolbar")
+            }
+        }
+        window.setContentSize(NSSize(width: 960, height: 520))
+        toolbar.updateToolSelection(activeTool: .pen)
+        content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
+        let wideCanvas = canvas.frame
+        let wideToolbar = toolbar.frame
+        var heightChanges = 0
+        let reserveHeight = toolbar.onPreferredHeightChange
+        toolbar.onPreferredHeightChange = { value in heightChanges += 1; reserveHeight?(value) }
+        for _ in 0..<10 {
+            textButton.performClick(nil)
+            for font in AnnotationFont.allCases {
+                toolbar.selectTextStyle(AnnotationTextStyle(font: font, size: 96))
+                content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
+                precondition(toolbar.frame == wideToolbar && canvas.frame == wideCanvas,
+                             "Text/font changes must not double a wide header or move the screenshot")
+            }
+            toolbar.onSelectTool?(.pen)
+        }
+        precondition(heightChanges == 0, "Wide tool changes must not trigger toolbar height callbacks")
+        toolbar.onPreferredHeightChange = reserveHeight
+        // Resizing while Text is active must return to one row as soon as it fits.
+        toolbar.onSelectTool?(.text)
+        for width: CGFloat in [620, 960, 900, 1000, 780, 1440, 960] {
+            window.setContentSize(NSSize(width: width, height: 520))
+            content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
+            verifyToolbar(toolbar)
+            precondition(width < 960 || toolbar.frame.height == 44)
+            precondition(width > 780 || toolbar.frame.height == 80)
+        }
+        print("PASS wide Text/font changes preserve header/canvas geometry; narrow/wide resize wraps only when needed")
+        // Verify full-resolution export and the three font designs on a 2x screenshot.
+        let retinaRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1280, pixelsHigh: 720,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        retinaRep.size = image.size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: retinaRep)
+        NSColor.white.setFill(); NSRect(origin: .zero, size: image.size).fill()
+        NSGraphicsContext.restoreGraphicsState()
+        let retinaImage = NSImage(size: image.size)
+        retinaImage.addRepresentation(retinaRep)
+        let retina = AnnotationCanvasView(image: retinaImage)
+        retina.frame = NSRect(x: 0, y: 0, width: 680, height: 400)
+        retina.activeTool = .text
+        retina.activeColor = .black
+        for (index, font) in AnnotationFont.allCases.prefix(3).enumerated() {
+            retina.activeTextStyle = AnnotationTextStyle(font: font, size: 28)
+            retina.beginText(at: CGPoint(x: 30, y: 310 - CGFloat(index) * 90))
+            retina.textEditor!.insertText("\(font.title) · Привет, Mac 👋", replacementRange: NSRange(location: NSNotFound, length: 0))
+            retina.finishTextEditing()
+        }
+        let result = retina.renderAnnotatedImage()
+        let output = result.representations.first as! NSBitmapImageRep
+        precondition(output.pixelsWide == 1280 && output.pixelsHigh == 720 && result.size == image.size)
+        try output.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("editor-text-fonts-retina.png"))
+        print("PASS 2x export preserves 1280×720 pixels and all three system font designs")
+        count += 1
+        // Very long input must wrap/scroll during editing and survive resizing without losing characters.
+        canvas.beginText(at: CGPoint(x: 40, y: 300))
+        canvas.textEditor!.insertText("Local undo", replacementRange: NSRange(location: NSNotFound, length: 0))
+        let typed = canvas.textEditor!.string
+        precondition(window.performKeyEquivalent(with: key(6, "z", .command)))
+        precondition(canvas.textEditor!.string != typed && canvas.items.count == 1)
+        precondition(window.performKeyEquivalent(with: key(6, "z", [.command, .shift])))
+        precondition(canvas.textEditor!.string == typed)
+        canvas.textEditor!.selectAll(nil)
+        let longText = String(repeating: "Длинная подпись / Long annotation 👋 ", count: 30)
+        canvas.textEditor!.insertText(longText, replacementRange: NSRange(location: NSNotFound, length: 0))
+        window.setContentSize(NSSize(width: 620, height: 400))
+        content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
+        precondition(canvas.textEditor!.string == longText)
+        let scroll = PanelPreview.descendants(canvas).compactMap { $0 as? NSScrollView }.first!
+        precondition(!canvas.textEditor!.drawsBackground && !scroll.drawsBackground,
+                     "Text entry must not obscure the screenshot or hide black text in dark mode")
+        precondition(canvas.bounds.contains(scroll.frame))
+        let bitmap = content.bitmapImageRepForCachingDisplay(in: content.bounds)!
+        content.cacheDisplay(in: content.bounds, to: bitmap)
+        try bitmap.representation(using: .png, properties: [:])!.write(to: directory.appendingPathComponent("editor-text-editing-narrow.png"))
+        canvas.finishTextEditing(commit: false)
+        print("PASS long multilingual text and editing viewport survive narrow-window resize")
+        return count + 1
     }
 
     private static func verifyToolbar(_ toolbar: ScreenshotEditorToolbar) {
@@ -182,6 +409,15 @@ enum AnnotationChecks {
         }
         precondition(controls.filter { $0 is AnnotationToolButton }.count == 6)
         precondition(controls.filter { $0 is CustomColorButton }.count == 1)
-        precondition(!controls.contains { $0 is NSPopUpButton }, "Width belongs in context menus only")
+        let pickers = controls.compactMap { $0 as? NSPopUpButton }
+        precondition(pickers.count == 0 || pickers.count == 2,
+                     "Only the two contextual text controls belong in the toolbar")
+        for (index, first) in controls.enumerated() {
+            for second in controls.dropFirst(index + 1) {
+                let a = toolbar.convert(first.bounds, from: first)
+                let b = toolbar.convert(second.bounds, from: second)
+                precondition(!a.intersects(b), "Toolbar controls overlap: \(first) and \(second)")
+            }
+        }
     }
 }

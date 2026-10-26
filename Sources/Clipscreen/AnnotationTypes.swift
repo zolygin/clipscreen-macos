@@ -7,6 +7,7 @@ enum AnnotationTool: Int, CaseIterable {
     case rect
     case filledRect
     case highlighter
+    case text
 
     var icon: LucideIcon {
         switch self {
@@ -15,6 +16,7 @@ enum AnnotationTool: Int, CaseIterable {
         case .line: return .slash
         case .rect: return .square
         case .filledRect: return .squareFilled
+        case .text: return .type
         case .highlighter: return .highlighter
         }
     }
@@ -26,13 +28,43 @@ enum AnnotationTool: Int, CaseIterable {
         case .line: return "Line"
         case .rect: return "Rectangle Outline"
         case .filledRect: return "Filled Rectangle"
+        case .text: return "Text"
         case .highlighter: return "Highlighter"
         }
     }
 
-    var usesLineWidth: Bool { self != .filledRect }
+    var usesLineWidth: Bool { self != .filledRect && self != .text }
     var defaultLineWidth: CGFloat { self == .highlighter ? 20 : 3.5 }
     var lineWidths: [CGFloat] { self == .highlighter ? [8, 12, 20, 28, 40] : [1, 2, 3.5, 6, 10, 16] }
+}
+
+enum AnnotationFont: Int, CaseIterable {
+    case system, serif, monospaced
+
+    var title: String {
+        switch self {
+        case .system: return "System"
+        case .serif: return "Serif"
+        case .monospaced: return "Monospaced"
+        }
+    }
+
+    func font(size: CGFloat) -> NSFont {
+        let base = NSFont.systemFont(ofSize: size)
+        let design: NSFontDescriptor.SystemDesign
+        switch self {
+        case .system: return base
+        case .serif: design = .serif
+        case .monospaced: design = .monospaced
+        }
+        return base.fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: size) } ?? base
+    }
+}
+
+struct AnnotationTextStyle: Equatable {
+    static let sizes: [CGFloat] = [12, 16, 20, 24, 32, 48, 64, 96]
+    var font: AnnotationFont = .system
+    var size: CGFloat = 24
 }
 
 struct AnnotationItem {
@@ -40,12 +72,31 @@ struct AnnotationItem {
     var startPoint: CGPoint
     var endPoint: CGPoint
     var points: [CGPoint]
-    let color: NSColor
+    var color: NSColor
     var lineWidth: CGFloat
+    var text: String = ""
+    var textStyle = AnnotationTextStyle()
+    var textMaxWidth: CGFloat = 400
 }
 
 enum AnnotationRenderer {
+    static func attributedText(for item: AnnotationItem) -> NSAttributedString {
+        NSAttributedString(string: item.text, attributes: [.font: item.textStyle.font.font(size: item.textStyle.size),
+                                                          .foregroundColor: item.color])
+    }
+
+    /// Text anchors use the top-left corner in the image's bottom-up coordinate system.
+    static func textRect(for item: AnnotationItem) -> CGRect {
+        let measured = attributedText(for: item).boundingRect(
+            with: NSSize(width: max(1, item.textMaxWidth), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+        let height = max(item.textStyle.size * 1.25, ceil(measured.height))
+        return CGRect(x: item.startPoint.x, y: item.startPoint.y - height,
+                      width: min(item.textMaxWidth, max(item.textStyle.size, ceil(measured.width))), height: height)
+    }
+
     static func contains(_ point: CGPoint, in item: AnnotationItem, tolerance: CGFloat) -> Bool {
+        if item.tool == .text { return textRect(for: item).insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
         let path = CGMutablePath()
         if item.tool == .rect || item.tool == .filledRect {
             let rect = CGRect(x: min(item.startPoint.x, item.endPoint.x), y: min(item.startPoint.y, item.endPoint.y),
@@ -94,6 +145,12 @@ enum AnnotationRenderer {
         let color = item.color
 
         switch item.tool {
+        case .text:
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+            attributedText(for: item).draw(with: textRect(for: item), options: [.usesLineFragmentOrigin, .usesFontLeading])
+            NSGraphicsContext.restoreGraphicsState()
+
         case .pen:
             context.setStrokeColor(color.cgColor)
             context.setLineWidth(item.lineWidth)

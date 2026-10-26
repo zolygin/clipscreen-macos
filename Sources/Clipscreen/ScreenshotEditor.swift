@@ -44,7 +44,9 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func buildUI(_ window: NSWindow) {
-        let content = NSView()
+        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        let content = NSView(frame: NSRect(origin: .zero, size: contentSize))
+        content.autoresizingMask = [.width, .height]
         window.contentView = content
 
         let separator = NSBox()
@@ -81,12 +83,23 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
             self.canvas.activeTool = tool
             self.canvas.activeLineWidth = self.toolbar.lineWidth(for: tool)
             self.toolbar.updateToolSelection(activeTool: tool)
+            if tool == .text { self.window?.makeFirstResponder(self.canvas.textEditor ?? self.canvas as NSResponder) }
         }
         toolbar.onSelectLineWidth = { [weak self] width in self?.canvas.activeLineWidth = width }
         toolbar.onSelectColor = { [weak self] color in
             guard let self else { return }
-            self.canvas.activeColor = color
+            self.canvas.setColor(color)
             self.toolbar.updateColorSelection(activeColor: color)
+        }
+        toolbar.onSelectTextStyle = { [weak self] style in
+            guard let self else { return }
+            self.canvas.setTextStyle(style)
+            self.window?.makeFirstResponder(self.canvas.textEditor ?? self.canvas as NSResponder)
+        }
+        canvas.onSelectText = { [weak self] style, color in
+            self?.toolbar.updateToolSelection(activeTool: .text)
+            self?.toolbar.updateTextStyle(style)
+            self?.toolbar.updateColorSelection(activeColor: color)
         }
         toolbar.onUndo = { [weak self] in self?.undoAction() }
         toolbar.onRedo = { [weak self] in self?.redoAction() }
@@ -114,6 +127,7 @@ final class ScreenshotEditorWindowController: NSWindowController, NSWindowDelega
     }
 
     @objc private func saveAction() {
+        canvas.finishTextEditing()
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.png]
         savePanel.nameFieldStringValue = "Screenshot \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .medium)).png"

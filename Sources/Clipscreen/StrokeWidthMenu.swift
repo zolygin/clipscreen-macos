@@ -7,11 +7,11 @@ final class StrokeWidthMenu: NSMenu {
     init(tool: AnnotationTool, width: CGFloat, onSelect: @escaping (CGFloat) -> Void) {
         self.onSelect = onSelect
         super.init(title: "Line width")
-        let heading = NSMenuItem(title: "\(tool.title) · Line width", action: nil, keyEquivalent: "")
+        let heading = NSMenuItem(title: tool == .text ? "Text" : "\(tool.title) · Line width", action: nil, keyEquivalent: "")
         heading.isEnabled = false
         addItem(heading)
         if !tool.usesLineWidth {
-            let explanation = NSMenuItem(title: "Solid fill has no outline width", action: nil, keyEquivalent: "")
+            let explanation = NSMenuItem(title: tool == .text ? "Choose font and size next to Color" : "Solid fill has no outline width", action: nil, keyEquivalent: "")
             explanation.isEnabled = false
             addItem(explanation)
             return

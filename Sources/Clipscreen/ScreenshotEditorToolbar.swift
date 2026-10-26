@@ -19,6 +19,7 @@ final class AnnotationToolButton: ClipIconButton {
 final class ScreenshotEditorToolbar: NSVisualEffectView {
     var onSelectTool: ((AnnotationTool) -> Void)?
     var onSelectColor: ((NSColor) -> Void)?
+    var onSelectTextStyle: ((AnnotationTextStyle) -> Void)?
     var onSelectLineWidth: ((CGFloat) -> Void)?
     var onPreferredHeightChange: ((CGFloat) -> Void)?
     var onUndo: (() -> Void)?
@@ -35,7 +36,15 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     private lazy var customColor = CustomColorButton(target: self, action: #selector(openColorPicker))
     private let topRow = NSStackView()
     private let bottomRow = NSStackView()
+    private let toolsGroup = NSStackView()
+    private let actionsGroup = NSStackView()
+    private let styleGroup = NSStackView()
     private let colorGroup = NSStackView()
+    private let textOptions = NSStackView()
+    private lazy var textButton = ClipIconButton(.type, label: "Text — click the image to type", target: self, action: #selector(textClicked))
+    private let fontPicker = NSPopUpButton()
+    private let fontSizePicker = NSPopUpButton()
+    private(set) var textStyle = AnnotationTextStyle()
     private let colorDivider = NSBox()
     private var isCompact = true
     private(set) var preferredHeight: CGFloat = 80
@@ -48,6 +57,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         blendingMode = .withinWindow
         state = .active
         setupLayout()
+        widthAnchor.constraint(greaterThanOrEqualToConstant: 620).isActive = true
         updateToolSelection(activeTool: .pen)
         updateColorSelection(activeColor: .systemRed)
     }
@@ -55,15 +65,16 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupLayout() {
-        let tools = group()
-        for tool in AnnotationTool.allCases {
+        configure(toolsGroup)
+        toolsGroup.setHuggingPriority(.required, for: .horizontal)
+        for tool in AnnotationTool.allCases where tool != .text {
             let button = AnnotationToolButton(tool.icon, label: tool.title, target: self, action: #selector(toolClicked(_:)))
             button.tag = tool.rawValue
             button.toolTip = tool == .filledRect ? "Filled Rectangle — drag to cover an area" : "\(tool.title) · Right-click for line width"
             button.widthMenu = { [weak self] in self?.makeWidthMenu(for: tool) ?? NSMenu() }
             size(button, width: 30, height: 30)
             toolButtons[tool] = button
-            tools.addArrangedSubview(button)
+            toolsGroup.addArrangedSubview(button)
         }
 
         configure(colorGroup)
@@ -83,15 +94,48 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         size(customColor, width: 30, height: 30)
         colorGroup.addArrangedSubview(customColor)
 
-        let actions = group()
+        configure(styleGroup, spacing: 8)
+        styleGroup.setHuggingPriority(.required, for: .horizontal)
+        styleGroup.addArrangedSubview(colorGroup)
+        styleGroup.addArrangedSubview(makeSeparator())
+        size(textButton, width: 30, height: 30)
+        textButton.setAccessibilityHelp("Select Text, then click the image to type. Press Return on the canvas to add text from the keyboard.")
+        styleGroup.addArrangedSubview(textButton)
+        configure(textOptions, spacing: 6)
+        for font in AnnotationFont.allCases {
+            fontPicker.addItem(withTitle: font.title)
+            fontPicker.lastItem?.tag = font.rawValue
+        }
+        fontPicker.target = self
+        fontPicker.action = #selector(textStyleChanged)
+        fontPicker.toolTip = "Text font — Apple system, serif or monospaced"
+        fontPicker.setAccessibilityLabel("Text font")
+        size(fontPicker, width: 118, height: 26)
+        for value in AnnotationTextStyle.sizes {
+            fontSizePicker.addItem(withTitle: StrokeWidthMenu.label(value))
+            fontSizePicker.lastItem?.representedObject = NSNumber(value: Double(value))
+        }
+        fontSizePicker.target = self
+        fontSizePicker.action = #selector(textStyleChanged)
+        fontSizePicker.toolTip = "Text size in image points"
+        fontSizePicker.setAccessibilityLabel("Text size")
+        size(fontSizePicker, width: 76, height: 26)
+        textOptions.addArrangedSubview(fontPicker)
+        textOptions.addArrangedSubview(fontSizePicker)
+        textOptions.isHidden = true
+        styleGroup.addArrangedSubview(textOptions)
+        updateTextStyle(textStyle)
+
+        configure(actionsGroup)
+        actionsGroup.setHuggingPriority(.required, for: .horizontal)
         undoButton = ClipIconButton(.undo, label: "Undo (⌘Z)", target: self, action: #selector(undoClicked))
         redoButton = ClipIconButton(.redo, label: "Redo (⇧⌘Z)", target: self, action: #selector(redoClicked))
         for button in [undoButton!, redoButton!] {
             button.isEnabled = false
             size(button, width: 28, height: 28)
-            actions.addArrangedSubview(button)
+            actionsGroup.addArrangedSubview(button)
         }
-        actions.addArrangedSubview(makeSeparator())
+        actionsGroup.addArrangedSubview(makeSeparator())
         let save = NSButton(title: "Save…", target: self, action: #selector(saveClicked))
         let copy = NSButton(title: "Copy", target: self, action: #selector(copyClicked))
         save.toolTip = "Save to disk (⌘S)"
@@ -100,53 +144,91 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         for button in [save, copy] {
             button.bezelStyle = .rounded
             button.controlSize = .regular
-            actions.addArrangedSubview(button)
+            actionsGroup.addArrangedSubview(button)
         }
 
         configure(topRow, spacing: 8)
         configure(bottomRow, spacing: 8)
-        topRow.addArrangedSubview(tools)
+        topRow.addArrangedSubview(toolsGroup)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 8).isActive = true
         topRow.addArrangedSubview(spacer)
-        topRow.addArrangedSubview(actions)
-        bottomRow.addArrangedSubview(colorGroup)
+        topRow.addArrangedSubview(actionsGroup)
+        bottomRow.addArrangedSubview(styleGroup)
         for row in [topRow, bottomRow] {
-            row.translatesAutoresizingMaskIntoConstraints = false
+            // Row widths are assigned during reflow, so their current contents
+            // cannot impose a stale minimum width on the resizable editor window.
+            row.translatesAutoresizingMaskIntoConstraints = true
             addSubview(row)
         }
         colorDivider.boxType = .separator
         size(colorDivider, width: 1, height: 18)
-        NSLayoutConstraint.activate([
-            topRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            topRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            topRow.topAnchor.constraint(equalTo: topAnchor, constant: 7),
-            topRow.heightAnchor.constraint(equalToConstant: 30),
-            bottomRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
-            bottomRow.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -14),
-            bottomRow.topAnchor.constraint(equalTo: topRow.bottomAnchor, constant: 6),
-            bottomRow.heightAnchor.constraint(equalToConstant: 30)
-        ])
     }
 
     override func layout() {
-        let compact = bounds.width < 720
-        if compact != isCompact {
-            isCompact = compact
-            colorGroup.removeFromSuperview()
-            colorDivider.removeFromSuperview()
-            if compact {
-                bottomRow.addArrangedSubview(colorGroup)
-            } else {
-                topRow.insertArrangedSubview(colorDivider, at: 1)
-                topRow.insertArrangedSubview(colorGroup, at: 2)
-            }
-            bottomRow.isHidden = !compact
-            preferredHeight = compact ? 80 : 44
-            onPreferredHeightChange?(preferredHeight)
-        }
+        updateRowLayout()
+        let width = max(0, bounds.width - 2 * 14)
+        topRow.frame = NSRect(x: 14, y: bounds.height - 7 - 30, width: width, height: 30)
+        bottomRow.frame = NSRect(x: 14, y: bounds.height - 7 - 30 - 6 - 30, width: width, height: 30)
         super.layout()
     }
+
+    private func updateRowLayout() {
+        // Measure the visible controls, including contextual font settings. Selecting
+        // Text must not add a row when the current window already has enough room.
+        let requiredWidth = contentWidth(toolsGroup) + contentWidth(styleGroup)
+            + contentWidth(actionsGroup) + 1 + 4 * 8 + 2 * 14 + 8
+        let compact = bounds.width < max(780, ceil(requiredWidth))
+        guard compact != isCompact else { return }
+        isCompact = compact
+        styleGroup.removeFromSuperview()
+        colorDivider.removeFromSuperview()
+        if compact {
+            bottomRow.addArrangedSubview(styleGroup)
+        } else {
+            topRow.insertArrangedSubview(colorDivider, at: 1)
+            topRow.insertArrangedSubview(styleGroup, at: 2)
+        }
+        bottomRow.isHidden = !compact
+        preferredHeight = compact ? 80 : 44
+        onPreferredHeightChange?(preferredHeight)
+    }
+
+    /// Measure the controls' natural widths independently of their current row.
+    /// A constrained stack's fitting size can reflect the current row allocation.
+    private func contentWidth(_ view: NSView) -> CGFloat {
+        if let stack = view as? NSStackView {
+            let visible = stack.arrangedSubviews.filter { !$0.isHidden }
+            return visible.reduce(CGFloat.zero) { $0 + contentWidth($1) }
+                + CGFloat(max(0, visible.count - 1)) * stack.spacing
+        }
+        if let width = view.constraints.first(where: {
+            $0.isActive && $0.firstAttribute == .width && $0.relation == .equal
+                && $0.secondItem == nil && $0.firstItem as? NSView === view
+        }) { return width.constant }
+        return max(0, view.intrinsicContentSize.width)
+    }
+
+    func updateTextStyle(_ style: AnnotationTextStyle) {
+        textStyle = style
+        fontPicker.selectItem(withTag: style.font.rawValue)
+        fontSizePicker.selectItem(at: AnnotationTextStyle.sizes.firstIndex(of: style.size) ?? 3)
+    }
+
+    func selectTextStyle(_ style: AnnotationTextStyle) {
+        guard AnnotationTextStyle.sizes.contains(style.size) else { return }
+        updateTextStyle(style)
+        onSelectTextStyle?(style)
+    }
+
+    @objc private func textStyleChanged() {
+        guard let font = AnnotationFont(rawValue: fontPicker.selectedTag()),
+              let size = fontSizePicker.selectedItem?.representedObject as? NSNumber else { return }
+        selectTextStyle(AnnotationTextStyle(font: font, size: CGFloat(size.doubleValue)))
+    }
+
+    @objc private func textClicked() { onSelectTool?(.text) }
 
     func lineWidth(for tool: AnnotationTool) -> CGFloat { widths[tool] ?? tool.defaultLineWidth }
 
@@ -159,10 +241,15 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     func makeWidthMenu(for tool: AnnotationTool) -> NSMenu {
-        StrokeWidthMenu(tool: tool, width: lineWidth(for: tool)) { [weak self] in self?.selectLineWidth($0, for: tool) }
+        return StrokeWidthMenu(tool: tool, width: lineWidth(for: tool)) { [weak self] in self?.selectLineWidth($0, for: tool) }
     }
 
     func updateToolSelection(activeTool: AnnotationTool) {
+        textButton.setActive(activeTool == .text)
+        textButton.setAccessibilityValue(activeTool == .text ? "Selected" : "Not selected")
+        textOptions.isHidden = activeTool != .text
+        updateRowLayout()
+        needsLayout = true
         for (tool, button) in toolButtons {
             button.setActive(tool == activeTool)
             let selected = tool == activeTool ? "Selected" : "Not selected"
@@ -204,13 +291,6 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     @objc private func customColorChanged(_ sender: NSColorPanel) {
         onSelectColor?(sender.color)
         updateColorSelection(activeColor: sender.color)
-    }
-
-    private func group() -> NSStackView {
-        let stack = NSStackView()
-        configure(stack)
-        stack.setHuggingPriority(.required, for: .horizontal)
-        return stack
     }
 
     private func configure(_ stack: NSStackView, spacing: CGFloat = 4) {
