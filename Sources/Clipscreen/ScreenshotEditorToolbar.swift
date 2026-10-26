@@ -102,15 +102,15 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         textButton.setAccessibilityHelp("Select Text, then click the image to type. Press Return on the canvas to add text from the keyboard.")
         styleGroup.addArrangedSubview(textButton)
         configure(textOptions, spacing: 6)
-        for font in AnnotationFont.allCases {
+        for font in AnnotationFont.available {
             fontPicker.addItem(withTitle: font.title)
             fontPicker.lastItem?.tag = font.rawValue
         }
         fontPicker.target = self
         fontPicker.action = #selector(textStyleChanged)
-        fontPicker.toolTip = "Text font — Apple system, serif or monospaced"
+        fontPicker.toolTip = "Text font — installed macOS typefaces"
         fontPicker.setAccessibilityLabel("Text font")
-        size(fontPicker, width: 118, height: 26)
+        size(fontPicker, width: 128, height: 26)
         for value in AnnotationTextStyle.sizes {
             fontSizePicker.addItem(withTitle: StrokeWidthMenu.label(value))
             fontSizePicker.lastItem?.representedObject = NSNumber(value: Double(value))
@@ -217,7 +217,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     func selectTextStyle(_ style: AnnotationTextStyle) {
-        guard AnnotationTextStyle.sizes.contains(style.size) else { return }
+        guard AnnotationTextStyle.sizes.contains(style.size), style.font.isAvailable else { return }
         updateTextStyle(style)
         onSelectTextStyle?(style)
     }

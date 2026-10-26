@@ -285,16 +285,16 @@ enum AnnotationChecks {
         precondition(toolbar.textStyle.size.isFinite)
         print("PASS text: actual typing, newlines, Unicode, cancel, style/color, drag, deletion, Undo/Redo, keyboard routing and PNG export")
 
-        let fontNames = Set(AnnotationFont.allCases.map { $0.font(size: 24).fontName })
-        precondition(fontNames.count == 3, "All three system font designs must resolve distinctly")
-        print("PASS three distinct installed Apple system font designs")
+        let fontNames = Set(AnnotationFont.available.map { $0.font(size: 24).fontName })
+        precondition(fontNames.count == AnnotationFont.available.count && fontNames.count == 8, "Installed font choices must resolve distinctly")
+        print("PASS eight distinct installed macOS font choices")
         var count = 1
         for theme: NSAppearance.Name in [.aqua, .darkAqua] {
             for width: CGFloat in [620, 780, 900, 960, 1000, 1440] {
                 window.appearance = NSAppearance(named: theme)
                 window.setContentSize(NSSize(width: width, height: 520))
                 toolbar.updateToolSelection(activeTool: .text)
-                for font in AnnotationFont.allCases {
+                for font in AnnotationFont.available {
                     toolbar.selectTextStyle(AnnotationTextStyle(font: font, size: 96))
                     content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
                     verifyToolbar(toolbar)
@@ -330,7 +330,7 @@ enum AnnotationChecks {
         toolbar.onPreferredHeightChange = { value in heightChanges += 1; reserveHeight?(value) }
         for _ in 0..<10 {
             textButton.performClick(nil)
-            for font in AnnotationFont.allCases {
+            for font in AnnotationFont.available {
                 toolbar.selectTextStyle(AnnotationTextStyle(font: font, size: 96))
                 content.layoutSubtreeIfNeeded(); content.layoutSubtreeIfNeeded()
                 precondition(toolbar.frame == wideToolbar && canvas.frame == wideCanvas,
@@ -365,7 +365,7 @@ enum AnnotationChecks {
         retina.frame = NSRect(x: 0, y: 0, width: 680, height: 400)
         retina.activeTool = .text
         retina.activeColor = .black
-        for (index, font) in AnnotationFont.allCases.prefix(3).enumerated() {
+        for (index, font) in AnnotationFont.available.prefix(3).enumerated() {
             retina.activeTextStyle = AnnotationTextStyle(font: font, size: 28)
             retina.beginText(at: CGPoint(x: 30, y: 310 - CGFloat(index) * 90))
             retina.textEditor!.insertText("\(font.title) · Привет, Mac 👋", replacementRange: NSRange(location: NSNotFound, length: 0))

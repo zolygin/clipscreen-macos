@@ -39,23 +39,43 @@ enum AnnotationTool: Int, CaseIterable {
 }
 
 enum AnnotationFont: Int, CaseIterable {
-    case system, serif, monospaced
+    case system, serif, monospaced, rounded, helveticaNeue, avenirNext, georgia, menlo
+
+    static var available: [AnnotationFont] { allCases.filter { $0.isAvailable } }
+    var isAvailable: Bool { postScriptName.map { NSFont(name: $0, size: 13) != nil } ?? true }
+    private var postScriptName: String? {
+        switch self {
+        case .helveticaNeue: return "HelveticaNeue"
+        case .avenirNext: return "AvenirNext-Regular"
+        case .georgia: return "Georgia"
+        case .menlo: return "Menlo-Regular"
+        default: return nil
+        }
+    }
 
     var title: String {
         switch self {
         case .system: return "System"
         case .serif: return "Serif"
         case .monospaced: return "Monospaced"
+        case .rounded: return "Rounded"
+        case .helveticaNeue: return "Helvetica Neue"
+        case .avenirNext: return "Avenir Next"
+        case .georgia: return "Georgia"
+        case .menlo: return "Menlo"
         }
     }
 
     func font(size: CGFloat) -> NSFont {
         let base = NSFont.systemFont(ofSize: size)
+        if let name = postScriptName { return NSFont(name: name, size: size) ?? base }
         let design: NSFontDescriptor.SystemDesign
         switch self {
         case .system: return base
         case .serif: design = .serif
         case .monospaced: design = .monospaced
+        case .rounded: design = .rounded
+        default: return base
         }
         return base.fontDescriptor.withDesign(design).flatMap { NSFont(descriptor: $0, size: size) } ?? base
     }
