@@ -29,6 +29,14 @@
 
 Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter** to paste directly into your active app.
 
+## Why I built Clipscreen
+
+I built Clipscreen after switching from Windows to Mac. One shortcut I kept missing was **Win+V**: open clipboard history and paste something I'd copied earlier. It was a small habit that I wanted to keep.
+
+Clipscreen is my way of bringing that workflow to the Mac. Press **⌥⌘V**, pick an earlier item, and carry on with what you were doing.
+
+— Kirill
+
 ## Features
 
 - **Instant Recall & Paste**: Press `⌥⌘V` anywhere, select an item, and press `Return` to auto-paste back into the active application.
@@ -37,6 +45,8 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 - **Screenshot Button**: Integrated camera button (`⌥⌘4`) in the header launches interactive area selection and saves the screenshot directly into your clipboard history.
 - **Consistent Icons**: Original Lucide SVGs across history, search, menu bar, and screenshot tools; bundled locally with their license.
 - **Pinned Items**: Pin buttons stay at the far right. Use `⌘P` for the selected item or `⇧⌘P` to filter pinned items.
+- **Text on Screenshots**: Click the Text button next to Color, then click the image to type. Choose from System, Serif, Monospaced, Rounded, Helvetica Neue, Avenir Next, Georgia and Menlo (when installed), with sizes from 12–96 pt. In Text mode, drag a label to move it or double-click to edit. Return adds a line, Command-Return applies, Escape cancels the edit. Text and style changes support Undo/Redo and full-resolution PNG export.
+- **Blur Area**: Right-click the filled rectangle and choose **Blur Area**, then drag over the screenshot. The same menu on an existing rectangle switches between blur and solid fill, with Undo/Redo. Blur is included in the exported PNG and affects earlier annotations beneath it.
 - **Screenshot Styling**: Right-click a tool or drawn annotation to choose stroke width. Outline and solid rectangles use matching square icons. Custom colors use a permanent rainbow-plus button; width edits support Undo/Redo.
 - **Window Positioning**: Draggable floating panel that remembers its position across invocations.
 - **Native Design**: Built with AppKit and modern macOS materials (Liquid Glass on macOS 26, standard system blur with Reduce Transparency fallback), respecting system Dark/Light themes.
@@ -60,7 +70,7 @@ Press **⌥⌘V**, navigate with arrow keys or type to filter, and press **Enter
 
 - **Operating System**: macOS 13.0 (Ventura) or later (tested up to macOS 26 / Tahoe).
 - **Architecture**: Apple Silicon (`arm64`) and Intel (`x86_64`).
-- **Build Tools**: Xcode or Command Line Tools (`swiftc`).
+- **Build Tools**: Xcode 26 or compatible Command Line Tools with the macOS 26 SDK (`swiftc`). The build SDK requirement is separate from the macOS 13 deployment target.
 
 ## Installation & Build
 
@@ -80,12 +90,24 @@ open .build/Clipscreen.app
 
 > **Tip:** For daily use, move `Clipscreen.app` to `/Applications` before enabling login items or granting system permissions.
 
+`Clipscreen.app` is the application itself; Terminal is not needed to launch it after installation. A DMG is a distribution container around that app. See [Building and distributing Clipscreen](docs/DISTRIBUTION.md) for local installation, a preview DMG, and the planned signed/notarized release workflow.
+
 ### First Launch & Permissions
 
 1. **Pasteboard Access**: When prompted by macOS, allow clipboard access so Clipscreen can monitor copied items in the background.
 2. **Accessibility Permission (for 1-click paste)**: To allow Clipscreen to automatically paste items into your destination app upon pressing `Return`, enable Clipscreen in **System Settings → Privacy & Security → Accessibility**.
    *(If Accessibility is not granted, pressing Return will copy the item to the clipboard for manual `⌘V` pasting).*
 3. **Launch at Login**: Right-click the Clipscreen icon in the macOS menu bar to enable "Launch at Login".
+
+## Windows and build identity
+
+Clipscreen runs in the menu bar. Escape dismisses history; in a screenshot editor, Escape, Command-W or the red close button closes that editor. With an editor active, the Window menu lists the open screenshot editors. Each editor retains its own drawing and controls until it closes. Choose **Quit Clipscreen** from the menu bar menu to quit the app and close all its windows.
+
+After a capture, the ready screenshot editor is presented through a shared foreground/focus handoff for the shortcut and menu bar action. Pending focus requests are cancelled when the editor closes or another capture begins. Implementation and verification limits: [screenshot focus fix](docs/SCREENSHOT-FOCUS-FIX.md).
+
+The menu bar menu shows the running version/build. Hover over that version to see the build date, source revision and app path. Quit an older copy before opening a new build: a second copy at another path now explains which copy is already running instead of silently exiting.
+
+The development app is built at `.build/Clipscreen.app`. Version 0.3.0 retains the earlier `local.kirill.clip` development identity, preference keys and `Application Support/Clip` history directory for compatibility; renaming the product does not reset history or pinned items.
 
 ## Privacy & Data Storage
 
@@ -102,11 +124,15 @@ The project includes an isolated test suite and headless UI preview renderer:
 # Run 22 unit and integration tests (uses isolated temporary pasteboards)
 bash scripts/check.sh
 
-# Render and verify 42 native visual scenarios, pin alignment and 120 resize updates
+# Render and verify 65 native visual/export scenarios, pin alignment and 120 resize updates
 bash scripts/check-ui.sh
 ```
 
 The latest interface diagnosis, visual constraints, verification limits, and filled implementation QA checklist are in [the Lucide and resize review](docs/UI-UX-LUCIDE-REVIEW.md).
+
+Expanded fonts and rectangle blur: [implementation and QA](docs/UI-UX-BLUR-FONTS-REVIEW.md).
+
+Text annotations and the filled implementation QA checklist: [text tool review](docs/UI-UX-TEXT-REVIEW.md).
 
 Screenshot editor behavior and the filled QA checklist: [stroke widths and custom color](docs/UI-UX-EDITOR-REVIEW.md).
 

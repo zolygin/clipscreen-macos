@@ -8,7 +8,7 @@ Clipscreen is a lightweight, zero-dependency native clipboard manager for macOS 
 
 1. **Prerequisites**:
    - macOS 13.0 or later
-   - Xcode or Command Line Tools with Swift 5+ (`swiftc`)
+   - Xcode 26 or compatible Command Line Tools with the macOS 26 SDK (`swiftc`). The macOS 13 deployment target is separate from this build-SDK requirement.
    - No external third-party dependencies or package managers required.
 
 2. **Verify Environment**:
