@@ -24,6 +24,7 @@ The version/build come from `Resources/Info.plist`; filenames change with the ve
 - Node.js 22 or later and npm. No `npm install` is needed: the wrapper uses Node built-ins only. The distributed app remains native Swift/AppKit and contains no Node/Electron runtime.
 - A valid **Developer ID Application** certificate and its private key in Keychain.
 - Apple notarization credentials configured by one of the methods below.
+- Permission for the invoking terminal to control Finder (macOS may ask once during DMG layout).
 - Network access for timestamp signing, notarization, ticket download and Gatekeeper assessment.
 
 The app still targets macOS 13.0+. Building with a deployment target is not a runtime compatibility test on every supported Mac.
@@ -35,6 +36,14 @@ npm run dist:check
 ```
 
 This checks the SDK/tools, source metadata, a matching valid Developer ID Application identity and the presence of the selected authentication configuration. It does not compile, sign, create a DMG, validate credentials remotely or upload anything. A Keychain-profile name is configuration, not proof that Apple will accept its credentials.
+
+### Installation window
+
+The DMG opens in Finder with Clipscreen on the left, the Applications shortcut on the right, an arrow and “Drag Clipscreen to Applications”. The arrow/background are static; Finder provides the actual drag, copy progress and keyboard interactions. After copying, open the app from Applications.
+
+During `npm run dist`, Finder briefly opens the private staging volume to save its icon positions, background and window settings. On the first run, allow the invoking terminal to control Finder. If denied, enable it in **System Settings → Privacy & Security → Automation** and retry. No such automation permission is required to install or use the distributed app.
+
+Layout failure, a missing `.DS_Store` or failure to unmount prevents signing/upload of a new DMG; existing release artifacts remain untouched. The staging volume is unmounted even when Finder configuration fails. Background artwork and regeneration instructions live in `Resources/Installer/README.md`.
 
 ### Authentication: same variables as Dictāta
 
@@ -90,10 +99,10 @@ The default bundle ID comes from `Resources/Info.plist`: currently `local.kirill
 
 1. Validate local prerequisites and acquire an exclusive release-job lock.
 2. Create a new workspace under `.build/dist-runs/`; keep the existing development app untouched.
-3. Copy Info.plist, Lucide SVGs/ISC license and the MIT license; record build provenance.
+3. Copy Info.plist, the Clipscreen ICNS icon, Lucide SVGs/ISC license and the MIT license; record build provenance.
 4. Compile optimized `arm64` and `x86_64` executables and merge them before signing.
 5. Sign the completed app with Developer ID Application, Hardened Runtime and a secure timestamp; verify its signature.
-6. Package the signed app beside an Applications shortcut in a compressed UDZO DMG; sign and verify the DMG.
+6. Create a temporary writable DMG, mount it at a unique private path, and use Finder to save a 640 × 400 pt drag-to-Applications layout with a Retina background. Close/unmount it, convert to compressed UDZO, then sign and verify the final DMG.
 7. Submit the outer DMG with `notarytool --wait`. Apple's service processes the nested app as part of that submission.
 8. Require `Accepted`, staple and validate the DMG ticket, verify disk-image integrity/signature, and run Gatekeeper assessment.
 9. Write the final DMG, SHA-256 sidecar and release manifest to `release/`; remove the successful temporary workspace.

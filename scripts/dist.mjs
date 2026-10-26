@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { spawnSync } from 'node:child_process';
+import { createInstallationDMG } from './dmg.mjs';
 
 const PROJECT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SIGNING_KEYS = new Set(['APPLE_ID', 'APPLE_TEAM_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_ID_PASSWORD',
@@ -86,6 +87,7 @@ export function preflight(root, env, run, platform = process.platform) {
   const lipo = run('/usr/bin/xcrun', ['--find', 'lipo']).stdout.trim();
   run('/usr/bin/xcrun', ['--find', 'notarytool']);
   run('/usr/bin/xcrun', ['--find', 'stapler']);
+  run('/usr/bin/xcrun', ['--find', 'SetFile']);
   const identity = selectIdentity(run('/usr/bin/security', ['find-identity', '-v', '-p', 'codesigning']).stdout,
     env.CLIPSCREEN_SIGNING_IDENTITY || env.CSC_NAME, env.APPLE_TEAM_ID);
   const profile = env.CLIPSCREEN_NOTARY_PROFILE || env.APPLE_KEYCHAIN_PROFILE;
@@ -101,7 +103,8 @@ export function preflight(root, env, run, platform = process.platform) {
   const sources = fs.readdirSync(path.join(root, 'Sources', 'Clipscreen')).filter(file => file.endsWith('.swift')).sort()
     .map(file => path.join(root, 'Sources', 'Clipscreen', file));
   if (!sources.length) throw new Error('No application Swift sources found.');
-  for (const required of ['LICENSE', 'Resources/Lucide/LICENSE', 'Resources/Lucide/clipboard.svg', 'Resources/Clipscreen.icns']) {
+  for (const required of ['LICENSE', 'Resources/Lucide/LICENSE', 'Resources/Lucide/clipboard.svg',
+    'Resources/Clipscreen.icns', 'Resources/Installer/background.tiff', 'scripts/dmg-layout.applescript']) {
     if (!fs.existsSync(path.join(root, required))) throw new Error(`Missing distribution resource: ${required}`);
   }
   const revisionResult = run('/usr/bin/git', ['rev-parse', '--short=12', 'HEAD'], { cwd: root, allowFailure: true });
@@ -200,12 +203,9 @@ export function distribute({ root = PROJECT, suppliedEnv = process.env, run: inj
     log('Signing the app with Developer ID and Hardened Runtime…');
     run('/usr/bin/codesign', ['--force', '--sign', config.identity.hash, '--options', 'runtime', '--timestamp', app]);
     run('/usr/bin/codesign', ['--verify', '--strict', '--verbose=2', app]);
-    const layout = path.join(work, 'layout'); fs.mkdirSync(layout);
-    run('/usr/bin/ditto', [app, path.join(layout, 'Clipscreen.app')]);
-    fs.symlinkSync('/Applications', path.join(layout, 'Applications'));
-    const dmg = path.join(work, config.filename);
-    log('Creating and signing the installation DMG…');
-    run('/usr/bin/hdiutil', ['create', '-volname', 'Clipscreen', '-srcfolder', layout, '-format', 'UDZO', '-fs', 'HFS+', dmg]);
+    log('Creating the drag-to-Applications installation window…');
+    const dmg = createInstallationDMG({ root, work, app, filename: config.filename, run });
+    log('Signing the installation DMG…');
     run('/usr/bin/codesign', ['--force', '--sign', config.identity.hash, '--timestamp', '--identifier', `${config.bundle}.dmg`, dmg]);
     run('/usr/bin/codesign', ['--verify', '--strict', '--verbose=2', dmg]);
     log('Uploading the signed DMG to Apple and waiting for notarization…');

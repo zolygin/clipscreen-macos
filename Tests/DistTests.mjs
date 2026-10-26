@@ -18,6 +18,7 @@ function fixture(t) {
   const files = {
     'Resources/Info.plist': '<plist><dict><key>CFBundleIdentifier</key><string>local.kirill.clip</string></dict></plist>',
     'Resources/Clipscreen.icns': 'fixture icon',
+    'Resources/Installer/background.tiff': 'fixture background', 'scripts/dmg-layout.applescript': '-- fixture Finder script',
     'Resources/Lucide/LICENSE': 'fixture Lucide license', 'Resources/Lucide/clipboard.svg': '<svg/>',
     'LICENSE': 'fixture MIT license', 'Sources/Clipscreen/App.swift': '// Never compiled: commands are intercepted.\n',
     '.env.release.local': `APPLE_ID=developer@example.invalid\nAPPLE_TEAM_ID=${TEAM}\nAPPLE_APP_SPECIFIC_PASSWORD=${PASSWORD}\n`,
@@ -49,6 +50,7 @@ function host(options = {}) {
         if (options.notaryError) throw new Error(`notarytool failed: ${PASSWORD}`);
         return ok(options.notaryRaw ?? JSON.stringify({ status: options.status ?? 'Accepted', id: 'fixture-submission-id' }));
       }
+      if (args[0] === 'SetFile') return ok();
       if (args[0] === 'stapler') {
         if (options.stapleError) throw new Error('Ticket stapling failed');
         if (args[1] === 'staple') fs.appendFileSync(args[2], '\nstapled ticket');
@@ -72,11 +74,30 @@ function host(options = {}) {
         assert.equal(fs.readlinkSync(path.join(layout, 'Applications')), '/Applications');
         assert.ok(fs.existsSync(path.join(layout, 'Clipscreen.app/Contents/Resources/Lucide/LICENSE')));
         assert.ok(fs.existsSync(path.join(layout, 'Clipscreen.app/Contents/Resources/LICENSE')));
+        assert.equal(fs.readFileSync(path.join(layout, '.VolumeIcon.icns'), 'utf8'), 'fixture icon');
         assert.equal(fs.readFileSync(path.join(layout, 'Clipscreen.app/Contents/Resources/Clipscreen.icns'), 'utf8'), 'fixture icon');
-        fs.writeFileSync(args.at(-1), 'FAKE disk image fixture');
+        fs.writeFileSync(args.at(-1), 'FAKE writable disk image fixture');
+      } else if (args[0] === 'attach') {
+        const mount = args[args.indexOf('-mountpoint') + 1];
+        const layout = path.join(path.dirname(mount), 'layout');
+        fs.cpSync(layout, mount, { recursive: true, verbatimSymlinks: true });
+      } else if (args[0] === 'detach') {
+        if (options.detachError && !args.includes('-force')) throw new Error('Volume busy');
+        if (options.forceDetachError) throw new Error('Unmount failed');
+      } else if (args[0] === 'convert') {
+        fs.writeFileSync(args[args.indexOf('-o') + 1], 'FAKE compressed disk image fixture');
       }
       return ok();
     }
+    if (binary === 'osascript') {
+      if (options.layoutError) throw new Error('Finder automation denied');
+      const mount = args[1];
+      assert.ok(fs.existsSync(path.join(mount, '.background/background.tiff')));
+      assert.equal(fs.readlinkSync(path.join(mount, 'Applications')), '/Applications');
+      if (!options.missingLayout) fs.writeFileSync(path.join(mount, '.DS_Store'), 'FAKE Finder metadata');
+      return ok();
+    }
+    if (binary === 'bless') return ok();
     if (binary === 'codesign') return ok();
     if (binary === 'spctl') { if (options.gatekeeperError) throw new Error('Gatekeeper rejected the disk image'); return ok(); }
     throw new Error(`Unexpected external command: ${binary}`);
@@ -252,3 +273,32 @@ test('Real lipo accepts production Universal 2 verification arguments and reject
     assert.equal(actualRun(lipo, [thin, '-archs']).stdout.trim(), 'arm64');
     assert.throws(() => verifyUniversalBinary(lipo, thin, actualRun), error => Number.isInteger(error.exitCode) && error.exitCode !== 0);
   });
+
+
+test('Installer layout is saved and unmounted before compression, signing and upload', t => {
+  const root = fixture(t); const mocked = host({ detachError: true });
+  invoke(root, mocked);
+  const step = (binary, arg) => mocked.calls.findIndex(c => path.basename(c.command) === binary && (!arg || c.args[0] === arg));
+  assert.ok(step('hdiutil', 'create') < step('hdiutil', 'attach'));
+  assert.ok(step('hdiutil', 'attach') < step('osascript'));
+  assert.ok(step('osascript') < step('bless'));
+  assert.ok(step('bless') < step('hdiutil', 'detach'));
+  assert.ok(step('hdiutil', 'detach') < step('hdiutil', 'convert'));
+  const force = mocked.calls.findIndex(c => c.args[0] === 'detach' && c.args.includes('-force'));
+  assert.ok(force > step('hdiutil', 'detach') && force < step('hdiutil', 'convert'));
+  const dmgSign = mocked.calls.findIndex(c => path.basename(c.command) === 'codesign' && c.args.includes('--sign') && c.args.at(-1).endsWith('.dmg'));
+  assert.ok(step('hdiutil', 'convert') < dmgSign);
+  assert.ok(dmgSign < step('xcrun', 'notarytool'));
+  assert.ok(mocked.calls[step('hdiutil', 'attach')].args.includes('-noautoopen'));
+});
+
+for (const options of [{ layoutError: true }, { missingLayout: true }, { forceDetachError: true }]) {
+  test(`Installer failure ${Object.keys(options)[0]} prevents compression/signing/upload and attempts unmount`, t => {
+    const root = fixture(t); const mocked = host(options);
+    assert.throws(() => invoke(root, mocked), /Cannot configure|Cannot unmount/);
+    assert.ok(mocked.calls.some(c => c.args[0] === 'detach'));
+    assert.ok(!mocked.calls.some(c => c.args[0] === 'convert' || c.args[0] === 'notarytool'));
+    assert.equal(fs.existsSync(path.join(root, 'release')), false);
+    assert.equal(fs.existsSync(path.join(root, '.build/dist.lock')), false);
+  });
+}
