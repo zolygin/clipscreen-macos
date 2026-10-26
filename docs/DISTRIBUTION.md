@@ -123,7 +123,7 @@ The release wrapper has automated tests with every external build/signing/Apple 
 npm run check:dist
 ```
 
-On 2026-10-26, 11 isolated tests passed. Real local preflight found the installed macOS 26.5 SDK, valid Developer ID Application identity and the existing Dictāta Apple ID environment. Release plist commands were also checked on a temporary plist, and both arm64/x86_64 compiler argument sets passed real Swift type-checking without emitting executables. **A real production build, signing operation and Apple submission were not run during this implementation.** These checks do not establish that a signed/notarized DMG has already been produced.
+On 2026-10-26, 11 isolated pipeline tests and a native `lipo` smoke test passed. The latter uses header-only Mach-O object fixtures, accepts both required architectures and rejects a missing slice without compiling an application. Real local preflight found the installed macOS 26.5 SDK, valid Developer ID Application identity and the existing Dictāta Apple ID environment. Release plist commands were also checked on a temporary plist, and both arm64/x86_64 compiler argument sets passed real Swift type-checking without emitting executables. **A real production build, signing operation and Apple submission were not run during this implementation.** These checks do not establish that a signed/notarized DMG has already been produced.
 
 After the first real successful `npm run dist`, test the actual downloaded/quarantined DMG with normal Gatekeeper settings. Verify install/launch, clipboard and Accessibility permissions, screenshots, login launch and updates. Test the architectures/macOS versions promised in release notes. Then create the GitHub Release and attach the DMG/checksum from this run; do not replace a published tagged asset with different bytes under the same filename.
 
@@ -133,3 +133,7 @@ After the first real successful `npm run dist`, test the actual downloaded/quara
 - Apple: [Creating distribution-signed code for macOS](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac).
 - Apple: [Customizing the notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
 - Apple: [Building a universal macOS binary](https://developer.apple.com/documentation/apple-silicon/building-a-universal-macos-binary).
+
+### First distribution-run fix: lipo argument order
+
+The first maintainer run compiled and merged both optimized slices, then stopped at the verification command because the executable path followed `-verify_arch`. That option consumes subsequent arguments as architecture names. The corrected command is `lipo <executable> -verify_arch arm64 x86_64`. It was checked with the real tool against both synthetic object headers and the already-produced Universal 2 executable. The fake lipo implementation now enforces the argument order too. Signing and notarization were not reached in that failed run; rerun `npm run dist` with the corrected script.

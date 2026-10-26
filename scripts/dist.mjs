@@ -114,6 +114,12 @@ export function preflight(root, env, run, platform = process.platform) {
     filename: `Clipscreen-${version}-universal.dmg` };
 }
 
+export function verifyUniversalBinary(lipo, executable, run) {
+  // -verify_arch consumes every following argument as an architecture name.
+  // Put the input file first so it cannot be parsed as an architecture name.
+  return run(lipo, [executable, '-verify_arch', 'arm64', 'x86_64']);
+}
+
 function acquireLock(root) {
   const directory = path.join(root, '.build');
   fs.mkdirSync(directory, { recursive: true });
@@ -188,7 +194,7 @@ export function distribute({ root = PROJECT, suppliedEnv = process.env, run: inj
     const executable = path.join(macos, config.executable);
     run(config.lipo, ['-create', ...slices, '-output', executable]);
     fs.chmodSync(executable, 0o755);
-    run(config.lipo, ['-verify_arch', 'arm64', 'x86_64', executable]);
+    verifyUniversalBinary(config.lipo, executable, run);
     run('/usr/bin/plutil', ['-lint', info]);
     log('Signing the app with Developer ID and Hardened Runtime…');
     run('/usr/bin/codesign', ['--force', '--sign', config.identity.hash, '--options', 'runtime', '--timestamp', app]);

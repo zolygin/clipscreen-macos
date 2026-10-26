@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { distribute, loadSigningEnvironment, selectIdentity } from '../scripts/dist.mjs';
+import { spawnSync } from 'node:child_process';
+import { distribute, loadSigningEnvironment, selectIdentity, verifyUniversalBinary } from '../scripts/dist.mjs';
 
 const HASH = 'A'.repeat(40);
 const TEAM = 'ABCDE12345';
@@ -56,6 +57,11 @@ function host(options = {}) {
     if (binary === 'swiftc') { fs.writeFileSync(args[args.indexOf('-o') + 1], 'FAKE object, not a Mach-O executable'); return ok(); }
     if (binary === 'lipo') {
       if (args[0] === '-create') fs.writeFileSync(args[args.indexOf('-output') + 1], 'FAKE universal executable');
+      else {
+        assert.equal(args[1], '-verify_arch');
+        assert.deepEqual(args.slice(2), ['arm64', 'x86_64']);
+        assert.ok(fs.existsSync(args[0]), 'lipo input file must precede -verify_arch');
+      }
       return ok();
     }
     if (binary === 'ditto') { fs.cpSync(args[0], args[1], { recursive: true }); return ok(); }
@@ -205,3 +211,42 @@ test('An active distribution lock rejects a second build before compilation', t 
   assert.ok(mocked.calls.every(call => path.basename(call.command) !== 'swiftc'));
   assert.equal(fs.readFileSync(path.join(root, '.build/dist.lock'), 'utf8'), String(process.pid));
 });
+
+// Real CLI smoke test on header-only Mach-O object fixtures. No Swift compiler,
+// executable app, signing tool or Apple network request is involved.
+test('Real lipo accepts production Universal 2 verification arguments and rejects a missing slice',
+  { skip: process.platform !== 'darwin' }, t => {
+    const root = fixture(t);
+    const location = spawnSync('/usr/bin/xcrun', ['--find', 'lipo'], { encoding: 'utf8' });
+    assert.equal(location.status, 0, location.stderr);
+    const lipo = location.stdout.trim();
+    const architectures = [{ cpu: 0x0100000c, subtype: 0 }, { cpu: 0x01000007, subtype: 3 }];
+    function header(cpu, subtype) {
+      const bytes = Buffer.alloc(32);
+      [0xfeedfacf, cpu, subtype, 1, 0, 0, 0, 0].forEach((value, index) => bytes.writeUInt32LE(value, index * 4));
+      return bytes;
+    }
+    const fat = Buffer.alloc(8192 + 32);
+    fat.writeUInt32BE(0xcafebabe, 0); fat.writeUInt32BE(2, 4);
+    architectures.forEach((arch, index) => {
+      const offset = 4096 * (index + 1);
+      [arch.cpu, arch.subtype, offset, 32, 12].forEach((value, field) => fat.writeUInt32BE(value, 8 + index * 20 + field * 4));
+      header(arch.cpu, arch.subtype).copy(fat, offset);
+    });
+    const universal = path.join(root, 'universal fixture.o');
+    fs.writeFileSync(universal, fat);
+    const actualRun = (tool, args) => {
+      const result = spawnSync(tool, args, { encoding: 'utf8' });
+      if (result.status !== 0) {
+        const error = new Error(result.stderr || 'lipo verification failed');
+        error.exitCode = result.status;
+        throw error;
+      }
+      return result;
+    };
+    assert.doesNotThrow(() => verifyUniversalBinary(lipo, universal, actualRun));
+    const thin = path.join(root, 'arm64 only fixture.o');
+    fs.writeFileSync(thin, header(architectures[0].cpu, architectures[0].subtype));
+    assert.equal(actualRun(lipo, [thin, '-archs']).stdout.trim(), 'arm64');
+    assert.throws(() => verifyUniversalBinary(lipo, thin, actualRun), error => Number.isInteger(error.exitCode) && error.exitCode !== 0);
+  });
