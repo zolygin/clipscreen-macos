@@ -23,7 +23,7 @@ Files: `scripts/dmg.mjs`, `scripts/dmg-layout.applescript`, `scripts/render-dmg.
 - [x] Accessibility design: meaning uses wording, direction and labeled native items; no color-only cue or required animation. Native copy/paste is available. Installation instruction also exists as document text.
 - [x] Layout: fixed desktop DMG view, generous gaps and Retina representation. Production app icon is not baked into the background; a future icon needs no layout change.
 - [x] Recovery: private unique mount path, close before detach, forced-detach fallback for this private volume, no conversion/signing/upload if layout or detach fails. Existing outputs remain intact.
-- [x] Visual fidelity: offscreen 1× and 2× artwork inspected; composition preview rendered with native icons. Aligned icons, arrow and readable instruction follow references 01–07 of ui-ux-product-design.
+- [x] Visual fidelity: offscreen 1× and 2× artwork inspected; composition preview rendered with native icons. The initial 2× preview exposed a double scale transform; moving the logical bitmap size assignment after drawing fixed it. The generator now checks the arrow pixel position/color at both scales. Aligned icons, arrow and readable instruction follow references 01–07 of ui-ux-product-design.
 - [x] Verification: Node syntax checks, isolated mocked distribution/failure tests, Swift artwork execution and AppleScript compilation. No full application/release build or Finder automation executed for verification.
 - [ ] Live Finder opening, VoiceOver, keyboard copy and real signed DMG install: require a maintainer run of `npm run dist` and manual check. Not claimed as tested.
 

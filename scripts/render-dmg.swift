@@ -24,7 +24,6 @@ for scale in [1, 2] {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width * scale, pixelsHigh: height * scale,
         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    rep.size = NSSize(width: width, height: height)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     let context = NSGraphicsContext.current!.cgContext
@@ -69,6 +68,18 @@ for scale in [1, 2] {
         }
     }
     NSGraphicsContext.restoreGraphicsState()
+    // Verify the arrow occupies the same logical position at both pixel scales.
+    let sample = rep.colorAt(x: 300 * scale, y: 210 * scale)!.usingColorSpace(.sRGB)!
+    guard abs(sample.redComponent - 118.0 / 255.0) < 0.02,
+          abs(sample.greenComponent - 118.0 / 255.0) < 0.02,
+          abs(sample.blueComponent - 128.0 / 255.0) < 0.02 else {
+        throw NSError(domain: "ClipscreenArtwork", code: 1, userInfo: [
+            NSLocalizedDescriptionKey: "Incorrect installer artwork scale at \(scale)x"
+        ])
+    }
+    // Set logical size after drawing: setting it before creating the bitmap
+    // context also scales its CTM, doubling the explicit Retina transform.
+    rep.size = NSSize(width: width, height: height)
     artwork.addRepresentation(rep)
     try rep.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("\(preview ? "installer-preview" : "background")-\(scale)x.png"))
 }
