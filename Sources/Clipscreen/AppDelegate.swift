@@ -321,8 +321,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func clearHistory() {
         panel.dismiss()
         let alert = NSAlert()
-        alert.messageText = "Clear all history?"
-        alert.informativeText = "This permanently removes saved text and images. Your current clipboard remains available to paste with ⌘V."
+        alert.messageText = "Clear history?"
+        alert.informativeText = "This permanently removes unpinned items. Favorites will be kept. Your current clipboard remains available to paste with ⌘V."
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: "Clear History")
         NSApp.activate(ignoringOtherApps: true)

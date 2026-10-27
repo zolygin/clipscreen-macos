@@ -210,7 +210,7 @@ final class HistoryRepository {
     }
 
     func clear() throws {
-        try commit([])
+        try commit(entries.filter { $0.isPinned })
         try cleanOrphans()
     }
 

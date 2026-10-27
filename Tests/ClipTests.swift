@@ -94,6 +94,73 @@ struct ClipTests {
                 try expect(files == ["index.json"], "Payloads remain after clear")
             }
         }
+        try test("Clear preserves favorites and their files across restart while removing unpinned data") {
+            try withRepository { repo, directory in
+                let samples: [(String, Bool, Data?)] = [
+                    ("favorite text", true, nil),
+                    ("favorite with thumbnail", true, Data([1, 2, 3])),
+                    ("temporary text", false, nil),
+                    ("temporary with thumbnail", false, Data([4, 5, 6]))
+                ]
+                for (text, pinned, thumbnail) in samples {
+                    let base = capture(text)
+                    let sample = ClipCapture(payload: base.payload, kind: thumbnail == nil ? .text : .image,
+                                             title: base.title, detail: "", searchText: text,
+                                             source: "Tests", thumbnail: thumbnail)
+                    try repo.add(sample)
+                    if pinned { try repo.togglePin(repo.entries[0].id) }
+                }
+                let favorites = repo.entries.filter { $0.isPinned }
+                let payloads = try favorites.map { try repo.payload(for: $0) }
+                let image = favorites.first { $0.kind == .image }!
+                let thumbnail = try Data(contentsOf: repo.thumbnailURL(image.id))
+                try repo.clear()
+                try expect(repo.entries == favorites, "Clear changed or removed favorites")
+                let reloaded = try HistoryRepository(directory: directory)
+                try expect(reloaded.entries == favorites, "Favorites did not survive restart")
+                let reloadedPayloads = try reloaded.entries.map { try reloaded.payload(for: $0) }
+                try expect(reloadedPayloads == payloads, "Favorite payload bytes changed or disappeared")
+                let reloadedThumbnail = try Data(contentsOf: reloaded.thumbnailURL(image.id))
+                try expect(reloadedThumbnail == thumbnail, "Favorite thumbnail changed or disappeared")
+                let expectedFiles = Set(["index.json", "\(image.id).png"] + favorites.map { "\($0.id).clip" })
+                let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+                try expect(Set(files) == expectedFiles, "Unpinned files remain or favorite files were deleted")
+            }
+        }
+        try test("Favorites can still be removed explicitly with their payload and thumbnail") {
+            try withRepository { repo, directory in
+                let base = capture("manually deleted favorite")
+                try repo.add(ClipCapture(payload: base.payload, kind: .image, title: base.title, detail: "",
+                                         searchText: "", source: "Tests", thumbnail: Data([7, 8, 9])))
+                let id = repo.entries[0].id
+                try repo.togglePin(id)
+                try repo.clear()
+                try expect(repo.entries.count == 1, "Clear removed the favorite before manual deletion")
+                try repo.remove(id)
+                let reloaded = try HistoryRepository(directory: directory)
+                try expect(reloaded.entries.isEmpty, "Explicit favorite deletion did not persist")
+                let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+                try expect(files == ["index.json"], "Explicit favorite deletion left files behind")
+            }
+        }
+        try test("Repeated clear keeps all favorites; unpinned favorites become eligible for clear") {
+            try withRepository { repo, directory in
+                for text in ["first favorite", "second favorite"] {
+                    try repo.add(capture(text))
+                    try repo.togglePin(repo.entries[0].id)
+                }
+                let favorites = repo.entries
+                try repo.clear()
+                try repo.clear()
+                let reloaded = try HistoryRepository(directory: directory)
+                try expect(reloaded.entries == favorites, "Repeated clear changed favorite-only history")
+                let unpinnedID = favorites[0].id
+                try reloaded.togglePin(unpinnedID)
+                try reloaded.clear()
+                let final = try HistoryRepository(directory: directory)
+                try expect(final.entries == favorites.filter { $0.id != unpinnedID }, "Clear did not respect the current pin state")
+            }
+        }
         try test("Corrupt index is preserved instead of silently overwritten") {
             try withRepository { _, directory in
                 let index = directory.appendingPathComponent("index.json")
