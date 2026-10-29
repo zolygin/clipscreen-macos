@@ -70,9 +70,17 @@ Clipscreen is my way of bringing that workflow to the Mac. Press **⌥⌘V**, pi
 
 - **Operating System**: macOS 13.0 (Ventura) or later (tested up to macOS 26 / Tahoe).
 - **Architecture**: Apple Silicon (`arm64`) and Intel (`x86_64`).
-- **Build Tools**: Xcode 26 or compatible Command Line Tools with the macOS 26 SDK (`swiftc`). The build SDK requirement is separate from the macOS 13 deployment target.
+- **Build Tools (source builds only)**: Xcode 26 or compatible Command Line Tools with the macOS 26 SDK (`swiftc`). The build SDK requirement is separate from the macOS 13 deployment target.
 
 ## Installation & Build
+
+### Download and install
+
+[**Download Clipscreen for macOS**](https://github.com/zolygin/clipscreen-macos/releases/latest)
+
+Open the signed/notarized DMG, drag **Clipscreen** into **Applications**, then launch it from Applications. One Universal 2 download supports Apple Silicon and Intel on macOS 13.0 or later. Xcode, Node.js and Terminal are not required to install or use the app.
+
+### Build from source
 
 Clipscreen can be built locally in seconds without any package manager:
 
