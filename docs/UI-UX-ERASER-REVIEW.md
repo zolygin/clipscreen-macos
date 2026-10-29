@@ -35,5 +35,5 @@ A screenshot editor user needs to remove one unwanted annotation without undoing
 
 ## Limits
 
-Eraser removes the topmost visible annotation hit by one click. It removes complete annotations created in the current editor; it does not remove content flattened into an imported image. It intentionally does not erase continuously while dragging or expose a brush width. The published 0.5.0 installer is unchanged; a new app build is needed to use this feature.
+Eraser removes the topmost visible annotation hit by one click. It removes complete annotations created in the current editor; it does not remove content flattened into an imported image. It intentionally does not erase continuously while dragging or expose a brush width. The original `v0.5.0` installer is unchanged. The maintainer rebuilt the app with Eraser from commit `1dfcdc592ceb6c1aeeb07d23d14a58c15e994211`; that installer is distributed as `v0.5.0-r2` while the app bundle still reports 0.5.0 (7).
 
