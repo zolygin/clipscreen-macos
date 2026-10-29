@@ -2,7 +2,7 @@ import AppKit
 
 /// Original Lucide SVGs, vendored in Resources/Lucide. No SF Symbols fallback.
 enum LucideIcon: String, CaseIterable {
-    case pin, scan, menu, pencil, files, image, type, square, highlighter, clipboard, pause, search, x
+    case eraser, pin, scan, menu, pencil, files, image, type, square, highlighter, clipboard, pause, search, x
     case penLine = "pen-line"
     case arrowUpRight = "arrow-up-right"
     case slash

@@ -5,6 +5,7 @@ import AppKit
 @main
 struct PanelPreview {
     static func main() throws {
+        setbuf(stdout, nil)
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)

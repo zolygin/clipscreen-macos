@@ -1,5 +1,5 @@
 #!/bin/bash
-# Isolated native view rendering only; never creates or runs Clip.app.
+# Isolated native view rendering only; never creates or runs Clipscreen.app.
 set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CHECK_DIR="$PROJECT_DIR/.build/checks"
@@ -21,6 +21,7 @@ xcrun swiftc -swift-version 5 -target "$(uname -m)-apple-macosx13.0" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditor.swift" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorWindow.swift" \
     "$PROJECT_DIR/Sources/Clipscreen/ScreenshotEditorToolbar.swift" \
+    "$PROJECT_DIR/Tests/EraserChecks.swift" \
     "$PROJECT_DIR/Tests/BlurChecks.swift" \
     "$PROJECT_DIR/Tests/AnnotationChecks.swift" \
     "$PROJECT_DIR/Tests/PanelPreview.swift" -o "$CHECK_DIR/PanelPreview"

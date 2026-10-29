@@ -8,6 +8,7 @@ The paths, 24 × 24 view box, 2-unit stroke, round caps and joins are unchanged.
 the geometry is identical; only `fill` changes from `none` to `currentColor`.
 It is not an additional upstream Lucide icon name.
 `square-dashed.svg` is the unchanged upstream icon from the same version, used for Blur Area.
+`eraser.svg` is the unchanged upstream icon from the same version (Git blob `4ff842ce783820f51209a703c5ccf349a67b5125`), used to remove whole annotations.
 AppKit loads these files as template images and applies the system tint.
 See LICENSE for Lucide's ISC attribution and permission notice.
 

@@ -9,9 +9,11 @@ enum AnnotationTool: Int, CaseIterable {
     case filledRect
     case highlighter
     case text
+    case eraser
 
     var icon: LucideIcon {
         switch self {
+        case .eraser: return .eraser
         case .pen: return .penLine
         case .arrow: return .arrowUpRight
         case .line: return .slash
@@ -24,6 +26,7 @@ enum AnnotationTool: Int, CaseIterable {
 
     var title: String {
         switch self {
+        case .eraser: return "Eraser"
         case .pen: return "Pencil"
         case .arrow: return "Arrow"
         case .line: return "Line"
@@ -34,7 +37,7 @@ enum AnnotationTool: Int, CaseIterable {
         }
     }
 
-    var usesLineWidth: Bool { self != .filledRect && self != .text }
+    var usesLineWidth: Bool { self != .filledRect && self != .text && self != .eraser }
     var defaultLineWidth: CGFloat { self == .highlighter ? 20 : 3.5 }
     var lineWidths: [CGFloat] { self == .highlighter ? [8, 12, 20, 28, 40] : [1, 2, 3.5, 6, 10, 16] }
 }
@@ -124,6 +127,7 @@ enum AnnotationRenderer {
     }
 
     static func contains(_ point: CGPoint, in item: AnnotationItem, tolerance: CGFloat) -> Bool {
+        if item.tool == .eraser { return false }
         if item.tool == .text { return textRect(for: item).insetBy(dx: -tolerance, dy: -tolerance).contains(point) }
         let path = CGMutablePath()
         if item.tool == .rect || item.tool == .filledRect {
@@ -174,6 +178,8 @@ enum AnnotationRenderer {
         let color = item.color
 
         switch item.tool {
+        case .eraser:
+            break // Interaction tool only; it never paints into the screenshot.
         case .text:
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)

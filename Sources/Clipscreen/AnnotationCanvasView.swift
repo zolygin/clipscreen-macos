@@ -53,6 +53,8 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
             if activeTool != oldValue {
                 finishTextEditing()
                 selectedTextIndex = nil
+                currentItem = nil
+                window?.invalidateCursorRects(for: self)
                 activeLineWidth = activeTool.defaultLineWidth
                 needsDisplay = true
             }
@@ -68,7 +70,7 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         super.init(frame: .zero)
         wantsLayer = true
         setAccessibilityLabel("Screenshot annotation canvas")
-        setAccessibilityHelp("Select Text, then click the image to type. Double-click text to edit, drag to move. Command-Return applies; Escape cancels editing.")
+        setAccessibilityHelp("Select Text, then click the image to type. Double-click text to edit, drag to move. Select Eraser and click an annotation to delete it; Command-Z restores it. Command-Return applies; Escape cancels editing.")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -106,6 +108,29 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         items.removeAll()
         needsDisplay = true
         onHistoryChange?(canUndo, canRedo)
+    }
+
+    /// Deletes one entire annotation, using the same geometry as context-menu hit testing.
+    @discardableResult
+    func eraseAnnotation(at point: CGPoint, tolerance: CGFloat = 6) -> Bool {
+        finishTextEditing()
+        guard let index = items.indices.reversed().first(where: {
+            AnnotationRenderer.contains(point, in: items[$0], tolerance: tolerance)
+        }) else { return false }
+        recordUndo()
+        items.remove(at: index)
+        selectedTextIndex = nil
+        currentItem = nil
+        textDragOrigin = nil
+        textDragStart = nil
+        needsDisplay = true
+        onHistoryChange?(canUndo, canRedo)
+        return true
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if activeTool == .eraser { addCursorRect(imageRect, cursor: .crosshair) }
     }
 
     private func recordUndo() {
@@ -343,6 +368,11 @@ final class AnnotationCanvasView: NSView, NSTextViewDelegate {
         window?.makeFirstResponder(self)
         guard imageRect.contains(convert(event.locationInWindow, from: nil)),
               let pt = toImagePoint(event.locationInWindow) else { selectedTextIndex = nil; needsDisplay = true; return }
+        if activeTool == .eraser {
+            let tolerance = 6 * baseImage.size.width / max(1, imageRect.width)
+            eraseAnnotation(at: pt, tolerance: tolerance)
+            return
+        }
         if activeTool == .text {
             let hit = items.indices.reversed().first {
                 items[$0].tool == .text && AnnotationRenderer.contains(pt, in: items[$0], tolerance: 3)

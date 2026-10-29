@@ -67,14 +67,16 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func setupLayout() {
-        configure(toolsGroup)
+        configure(toolsGroup, spacing: 2)
         toolsGroup.setHuggingPriority(.required, for: .horizontal)
         for tool in AnnotationTool.allCases where tool != .text {
             let button = AnnotationToolButton(tool.icon, label: tool.title, target: self, action: #selector(toolClicked(_:)))
             button.tag = tool.rawValue
             button.toolTip = tool == .filledRect ? "Filled Rectangle — drag to cover an area" : "\(tool.title) · Right-click for line width"
-            button.widthMenu = { [weak self] in self?.makeWidthMenu(for: tool) ?? NSMenu() }
-            size(button, width: 30, height: 30)
+            if tool != .eraser {
+                button.widthMenu = { [weak self] in self?.makeWidthMenu(for: tool) ?? NSMenu() }
+            }
+            size(button, width: 28, height: 28)
             toolButtons[tool] = button
             toolsGroup.addArrangedSubview(button)
         }
@@ -96,7 +98,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         size(customColor, width: 30, height: 30)
         colorGroup.addArrangedSubview(customColor)
 
-        configure(styleGroup, spacing: 8)
+        configure(styleGroup, spacing: 6)
         styleGroup.setHuggingPriority(.required, for: .horizontal)
         styleGroup.addArrangedSubview(colorGroup)
         styleGroup.addArrangedSubview(makeSeparator())
@@ -112,7 +114,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         fontPicker.action = #selector(textStyleChanged)
         fontPicker.toolTip = "Text font — installed macOS typefaces"
         fontPicker.setAccessibilityLabel("Text font")
-        size(fontPicker, width: 128, height: 26)
+        size(fontPicker, width: 124, height: 26)
         for value in AnnotationTextStyle.sizes {
             fontSizePicker.addItem(withTitle: StrokeWidthMenu.label(value))
             fontSizePicker.lastItem?.representedObject = NSNumber(value: Double(value))
@@ -250,6 +252,7 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
     }
 
     func makeWidthMenu(for tool: AnnotationTool) -> NSMenu {
+        if tool == .eraser { return NSMenu(title: "Eraser") }
         if tool == .filledRect {
             return RectangleFillMenu(mode: fillMode) { [weak self] in self?.selectFillMode($0) }
         }
@@ -264,6 +267,12 @@ final class ScreenshotEditorToolbar: NSVisualEffectView {
         needsLayout = true
         for (tool, button) in toolButtons {
             button.setActive(tool == activeTool)
+            if tool == .eraser {
+                button.setAccessibilityValue(tool == activeTool ? "Selected" : "Not selected")
+                button.toolTip = "Eraser — click an annotation to remove it"
+                button.setAccessibilityHelp("Click one annotation to delete it. Command-Z restores it. The screenshot itself is preserved.")
+                continue
+            }
             if tool == .filledRect {
                 button.image = fillMode.icon.image()
                 button.setAccessibilityLabel(fillMode.title)

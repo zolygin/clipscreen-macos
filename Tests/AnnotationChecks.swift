@@ -179,6 +179,7 @@ enum AnnotationChecks {
                 print("PASS \(name): adaptive grouping, no redundant width control, custom rainbow state")
             }
         }
+        count += try EraserChecks.run(directory: directory)
         count += try checkText(directory: directory)
         count += try BlurChecks.run(directory: directory)
         return count
@@ -416,7 +417,7 @@ enum AnnotationChecks {
                          && rect.minY >= 0 && rect.maxY <= toolbar.bounds.height + 0.5,
                          "Toolbar control escapes its bounds: \(control) \(rect) in \(toolbar.bounds)")
         }
-        precondition(controls.filter { $0 is AnnotationToolButton }.count == 6)
+        precondition(controls.filter { $0 is AnnotationToolButton }.count == AnnotationTool.allCases.filter { $0 != .text }.count)
         precondition(controls.filter { $0 is CustomColorButton }.count == 1)
         let pickers = controls.compactMap { $0 as? NSPopUpButton }
         precondition(pickers.count == 0 || pickers.count == 2,
