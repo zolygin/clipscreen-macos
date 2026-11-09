@@ -13,6 +13,19 @@ enum PasteboardCodec {
         NSPasteboard.PasteboardType.URL.rawValue, NSPasteboard.PasteboardType.fileURL.rawValue
     ]
 
+    private static func isImageType(_ type: String) -> Bool {
+        UTType(type)?.conforms(to: .image) == true
+    }
+
+    private static func compactImageRepresentations(_ part: ClipPart) -> ClipPart {
+        let images = part.representations.filter { isImageType($0.type) }
+        guard images.count > 1, let smallest = images.sorted(by: { $0.data.count < $1.data.count }).first(where: {
+            guard let source = CGImageSourceCreateWithData($0.data as CFData, nil) else { return false }
+            return CGImageSourceGetCount(source) > 0
+        }) else { return part }
+        return ClipPart(representations: part.representations.filter { !isImageType($0.type) || $0.type == smallest.type })
+    }
+
     static func capture(from board: NSPasteboard, source: String) throws -> ClipCapture? {
         let version = board.changeCount
         guard let items = board.pasteboardItems, !items.isEmpty else { return nil }
@@ -20,35 +33,49 @@ enum PasteboardCodec {
         guard !items.contains(where: { !$0.types.map(\.rawValue).filter(ignoredTypes.contains).isEmpty }) else {
             return nil
         }
+        let limit = HistoryRepository.maxPayloadBytes
         var total = 0
+        var compactImages = false
         var parts: [ClipPart] = []
         for item in items {
             var reps: [ClipRepresentation] = []
             for type in item.types {
-                let isImage = UTType(type.rawValue)?.conforms(to: .image) == true
-                guard textTypes.contains(type.rawValue) || isImage,
+                guard textTypes.contains(type.rawValue) || isImageType(type.rawValue),
                       let data = item.data(forType: type), !data.isEmpty else { continue }
-                total += data.count
-                guard total <= HistoryRepository.maxPayloadBytes else { throw HistoryError.tooLarge }
                 reps.append(ClipRepresentation(type: type.rawValue, data: data))
             }
             // Do not silently capture only some items of a multi-item clipboard.
             guard !reps.isEmpty else { return nil }
-            parts.append(ClipPart(representations: reps))
+            let part = ClipPart(representations: reps)
+            let stored = compactImages ? compactImageRepresentations(part) : part
+            parts.append(stored)
+            total += stored.representations.reduce(0) { $0 + $1.data.count }
+            if total > limit && !compactImages {
+                // PNG and TIFF can be two encodings of one copy. Keep the original
+                // bytes of a usable encoding when the alternatives exceed the limit.
+                parts = parts.map(compactImageRepresentations)
+                total = ClipPayload(parts: parts).byteCount
+                compactImages = true
+            }
+            guard total <= limit else { throw HistoryError.tooLarge }
         }
         guard board.changeCount == version else { return nil }
         let payload = ClipPayload(parts: parts)
         let reps = parts.flatMap(\.representations)
         let files = reps.filter { $0.type == NSPasteboard.PasteboardType.fileURL.rawValue }
-        if !files.isEmpty {
+        let images = reps.filter { isImageType($0.type) }
+        // A single image can also carry its source file URL. A plain Finder
+        // file copy or a group of file references remains a file entry.
+        if !files.isEmpty && (parts.count > 1 || images.isEmpty) {
             let names = files.compactMap { String(data: $0.data, encoding: .utf8) }
                 .compactMap { URL(string: $0)?.lastPathComponent }
             return ClipCapture(payload: payload, kind: .files, title: names.joined(separator: ", "),
                                detail: "Files: \(files.count)", searchText: names.joined(separator: " "),
                                source: source, thumbnail: nil)
         }
-        if let rep = reps.first(where: { UTType($0.type)?.conforms(to: .image) == true }) {
-            let imageSource = CGImageSourceCreateWithData(rep.data as CFData, nil)
+        if !images.isEmpty {
+            let imageSource = images.lazy.compactMap { CGImageSourceCreateWithData($0.data as CFData, nil) }
+                .first { CGImageSourceGetCount($0) > 0 }
             let properties = imageSource.flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] }
             let width = properties?[kCGImagePropertyPixelWidth] as? Int
             let height = properties?[kCGImagePropertyPixelHeight] as? Int

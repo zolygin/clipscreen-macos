@@ -271,6 +271,49 @@ struct ClipTests {
                 try expect(board.data(forType: .png) == png, "Image data changed")
             }
         }
+        try test("An image with a source file URL still shows a preview and restores its bytes") {
+            try withPasteboard { board in
+                let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 3,
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: 16, bitsPerPixel: 32)!
+                let png = bitmap.representation(using: .png, properties: [:])!
+                let item = NSPasteboardItem()
+                item.setString("file:///tmp/image.png", forType: .fileURL)
+                item.setData(png, forType: .png)
+                try expect(board.writeObjects([item]), "Image with source file URL was not written")
+                guard let snapshot = try PasteboardCodec.capture(from: board, source: "Tests") else {
+                    throw TestFailure(description: "Image with source file URL was not captured")
+                }
+                try expect(snapshot.kind == .image && snapshot.thumbnail != nil, "Image was listed as a file")
+                try expect(PasteboardCodec.restore(snapshot.payload, to: board), "Restore failed")
+                try expect(board.data(forType: .png) == png, "Original image data changed")
+                try expect(board.string(forType: .fileURL) == "file:///tmp/image.png", "Source URL was lost")
+            }
+        }
+        try test("A large PNG/TIFF copy keeps the original full-resolution PNG when TIFF exceeds the budget") {
+            try withPasteboard { board in
+                let width = 4096, height = 3328, rowBytes = width * 4
+                let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
+                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                    colorSpaceName: .deviceRGB, bytesPerRow: rowBytes, bitsPerPixel: 32)!
+                memset(bitmap.bitmapData!, 255, rowBytes * height)
+                let png = bitmap.representation(using: .png, properties: [:])!
+                let tiff = bitmap.tiffRepresentation!
+                try expect(tiff.count > HistoryRepository.maxPayloadBytes, "Expected an oversized TIFF fixture")
+                let item = NSPasteboardItem()
+                item.setData(tiff, forType: .tiff)
+                item.setData(png, forType: .png)
+                try expect(board.writeObjects([item]), "Large image was not written")
+                guard let snapshot = try PasteboardCodec.capture(from: board, source: "Tests") else {
+                    throw TestFailure(description: "Large image with a compact representation was not captured")
+                }
+                try expect(snapshot.kind == .image && snapshot.detail == "4096 × 3328", "Image dimensions changed")
+                try expect(snapshot.thumbnail != nil, "Missing image thumbnail")
+                try expect(snapshot.payload.byteCount == png.count, "Redundant image representations were stored")
+                try expect(PasteboardCodec.restore(snapshot.payload, to: board), "Restore failed")
+                try expect(board.data(forType: .png) == png, "Original image data changed")
+            }
+        }
         try test("Concealed and transient pasteboard transactions are skipped") {
             try withPasteboard { board in
                 for marker in PasteboardCodec.ignoredTypes {
