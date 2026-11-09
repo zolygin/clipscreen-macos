@@ -70,6 +70,37 @@ struct PanelPreview {
         keyboard.handleHistoryKey(35, modifiers: [.command, .shift])
         print("PASS pin shortcut and pinned filter")
 
+        let opening = HistoryPanel(materialMode: .standard, hasPastePermission: { true })
+        let latest = entries[0]
+        let olderEntries = (1...24).map { offset in
+            ClipEntry(id: UUID(), copiedAt: latest.copiedAt.addingTimeInterval(Double(-offset)), kind: .text,
+                      title: "Entry \(offset)", detail: "", searchText: "", source: "",
+                      fingerprint: "history-\(offset)", byteCount: 10, isPinned: offset == 24)
+        }
+        let history = [latest] + olderEntries
+        let openingContent = opening.window!.contentView!
+        openingContent.layoutSubtreeIfNeeded()
+        let openingTable = descendants(openingContent).compactMap { $0 as? ClipTableView }.first!
+        opening.refresh(history, message: nil)
+        for _ in olderEntries { opening.handleHistoryKey(125) }
+        precondition(opening.selectedEntry?.isPinned == true, "Fixture must select the last, pinned row")
+        precondition(!openingTable.visibleRect.intersects(openingTable.rect(ofRow: 0)), "Fixture must scroll away from the latest entry")
+        opening.prepareToShow()
+        precondition(opening.selectedEntry?.id == latest.id, "Reopening must select the newest copy")
+        precondition(openingTable.visibleRect.contains(openingTable.rect(ofRow: 0)), "Reopening must show the newest copy")
+        opening.handleHistoryKey(35, modifiers: [.command, .shift])
+        opening.prepareToShow()
+        precondition(openingTable.numberOfRows == history.count, "Reopening from Favorites must show all history")
+
+        var recopied = olderEntries[0]
+        recopied.copiedAt = latest.copiedAt.addingTimeInterval(1)
+        opening.refresh([recopied, latest] + olderEntries.dropFirst(), message: nil)
+        precondition(opening.selectedEntry?.id == recopied.id, "Follow a new copy that finishes saving during opening")
+        opening.handleHistoryKey(125)
+        opening.refresh([recopied, latest] + olderEntries.dropFirst(), message: "A recoverable error")
+        precondition(opening.selectedEntry?.id == latest.id, "Preserve selection after manual navigation")
+        print("PASS reopening resets favorites, shows the latest copy, and follows pending history updates")
+
         // Exercise the same drag path as mouse events, without moving the
         // system pointer, activating a window, or saving real preferences.
         let resizeWindow = keyboard.window!

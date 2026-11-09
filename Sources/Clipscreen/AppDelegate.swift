@@ -118,6 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let front = NSWorkspace.shared.frontmostApplication
         target = front?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? lastExternalApp : front
         actionMessage = nil
+        monitor.poll()
         refresh()
         panel.show()
     }

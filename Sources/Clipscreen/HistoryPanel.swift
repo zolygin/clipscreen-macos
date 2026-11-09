@@ -223,13 +223,18 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
 
     func show() {
         guard let window else { return }
-        search.stringValue = ""
-        refilter()
-        updateAccess()
         positionWindow(window)
+        prepareToShow()
+        updateAccess()
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(search)
         installMonitors()
+    }
+
+    func prepareToShow() {
+        search.stringValue = ""
+        setFavoritesFilter(false)
+        refilter(resetSelection: true)
     }
 
     private func positionWindow(_ window: NSWindow) {
@@ -274,6 +279,10 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     }
 
     func refresh(_ entries: [ClipEntry], message: String?, readPermissionNeeded: Bool = false, isLoading: Bool = false) {
+        // If a just-copied item is still being saved, follow it when it arrives.
+        // Keep the selection when the user has navigated away from the latest copy.
+        let followLatest = !showOnlyPinned && searchQuery.isEmpty &&
+            selectedEntry?.id == newestVisibleRow.map { filtered[$0].id }
         self.isLoading = isLoading
         self.entries = entries
         self.readPermissionNeeded = readPermissionNeeded
@@ -289,7 +298,7 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
         let height = (message ?? "").boundingRect(with: NSSize(width: width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: banner.font!]).height
         bannerHeight.constant = message == nil ? 0 : max(32, ceil(height) + 6)
-        refilter()
+        refilter(resetSelection: followLatest)
         updateAccess()
     }
 
@@ -477,16 +486,28 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
     }
 
     @objc private func toggleFavoritesFilter() {
-        showOnlyPinned.toggle()
-        favoritesButton.setActive(showOnlyPinned)
-        favoritesButton.setAccessibilityValue(showOnlyPinned ? "On" : "Off")
-        favoritesButton.toolTip = showOnlyPinned ? "Show all history (⇧⌘P)" : "Show pinned items (⇧⌘P)"
+        setFavoritesFilter(!showOnlyPinned)
         refilter()
     }
 
-    private func refilter() {
-        let selected = selectedEntry?.id
-        let query = search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func setFavoritesFilter(_ enabled: Bool) {
+        showOnlyPinned = enabled
+        favoritesButton.setActive(enabled)
+        favoritesButton.setAccessibilityValue(enabled ? "On" : "Off")
+        favoritesButton.toolTip = enabled ? "Show all history (⇧⌘P)" : "Show pinned items (⇧⌘P)"
+    }
+
+    private var searchQuery: String {
+        search.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var newestVisibleRow: Int? {
+        filtered.indices.max { filtered[$0].copiedAt < filtered[$1].copiedAt }
+    }
+
+    private func refilter(resetSelection: Bool = false) {
+        let selected = resetSelection ? nil : selectedEntry?.id
+        let query = searchQuery
         let matches = query.isEmpty ? entries : entries.filter {
             $0.searchText.localizedStandardContains(query) || $0.displayTitle.localizedStandardContains(query)
                 || $0.source.localizedStandardContains(query)
@@ -499,9 +520,9 @@ final class HistoryPanel: NSWindowController, NSWindowDelegate, NSTableViewDataS
             filtered = unpinned + pinned
         }
         table.reloadData()
-        if !filtered.isEmpty {
-            let row = filtered.firstIndex { $0.id == selected } ?? 0
+        if let row = filtered.firstIndex(where: { $0.id == selected }) ?? newestVisibleRow {
             table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            if resetSelection { window?.contentView?.layoutSubtreeIfNeeded() }
             table.scrollRowToVisible(row)
         }
         emptyTitle.isHidden = !filtered.isEmpty
