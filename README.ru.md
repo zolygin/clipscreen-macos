@@ -125,7 +125,7 @@ npm run dist:check  # Только локальная проверка гото�
 npm run dist        # Сборка, подпись, DMG, нотарификация Apple и проверки
 ```
 
-Готовый Universal 2 установщик для Apple Silicon и Intel: `release/Clipscreen-0.5.0-universal.dmg`. Рядом сохраняются контрольная сумма и данные релиза. Нужны Node.js 22+, Developer ID и данные нотарификации; `npm install` не требуется. Команда не публикует файлы на GitHub. Локально можно использовать те же Apple-параметры, что и в Dictāta. [Настройка и подробности](docs/DISTRIBUTION.md).
+Готовый Universal 2 установщик для Apple Silicon и Intel: `release/Clipscreen-<version>-universal.dmg`. Рядом сохраняются контрольная сумма и данные релиза. Нужны Node.js 22+, Developer ID и данные нотарификации; `npm install` не требуется. Команда не публикует файлы на GitHub. Локально можно использовать те же Apple-параметры, что и в Dictāta. [Настройка и подробности](docs/DISTRIBUTION.md).
 
 ### Первый запуск и разрешения
 

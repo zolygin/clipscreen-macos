@@ -120,7 +120,7 @@ npm run dist:check  # Local prerequisites only; no build/upload
 npm run dist        # Compile, sign, package, notarize and verify
 ```
 
-The output is `release/Clipscreen-0.5.0-universal.dmg`, with a checksum and release manifest. This wrapper requires Node.js 22+ and configured Apple signing/notarization credentials; no `npm install` is needed. It does not publish to GitHub. See [distribution setup](docs/DISTRIBUTION.md). Source/development builds above do not require a paid Developer ID identity.
+The output is `release/Clipscreen-<version>-universal.dmg`, with a checksum and release manifest. This wrapper requires Node.js 22+ and configured Apple signing/notarization credentials; no `npm install` is needed. It does not publish to GitHub. See [distribution setup](docs/DISTRIBUTION.md). Source/development builds above do not require a paid Developer ID identity.
 
 ### First Launch & Permissions
 

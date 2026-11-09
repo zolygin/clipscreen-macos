@@ -9,9 +9,9 @@ npm run dist
 This creates an optimized **Universal 2** app (Apple Silicon and Intel), signs it with Developer ID Application, creates and signs a DMG, submits that DMG to Apple, waits for **Accepted**, staples its ticket, and verifies the final container before writing:
 
 ```text
-release/Clipscreen-0.5.0-universal.dmg
-release/Clipscreen-0.5.0-universal.dmg.sha256
-release/Clipscreen-0.5.0-universal.release.json
+release/Clipscreen-<version>-universal.dmg
+release/Clipscreen-<version>-universal.dmg.sha256
+release/Clipscreen-<version>-universal.release.json
 ```
 
 The version/build come from `Resources/Info.plist`; filenames change with the version. The JSON records architectures, source revision, signer, notarization submission ID and checksum. A modified source checkout is marked `+modified`. Only a completed, verified run replaces the generated local DMG; it does not alter an already-published release.
